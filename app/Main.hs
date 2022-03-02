@@ -1,5 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs, StandaloneKindSignatures #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module Main where
 import Data.Proxy
@@ -7,51 +7,53 @@ import Data.Proxy
 main :: IO ()
 main = putStrLn "Hello, Haskell!"
 
-
 class Widget widget context target where
-  toWidget :: context -> widget context target -> target
+  toWidget :: widget context target -> target context
 
-class SubContext super sub where
-  subContext :: super -> sub
+type WidgetKind = * -> (* -> *) -> *
 
-instance SubContext same same where
-  subContext = id
+data Inline
 
-data Inline = Inline String
+data Block
 
-data Block = Block
+data Window
 
-data Window = Window
-
-data Web = Web
-
+type Button :: WidgetKind
 data Button c t = Button String
 
-data Text c t = c ~ Inline => Text String
+type Text :: WidgetKind
+data Text c t = Text String
 
 data List c t = List [Markup c t]
 
-instance Widget Text Inline String where
-  toWidget (Inline str) (Text t) = str <> t
 
-instance Widget Button Inline String where
-  toWidget _ (Button s) = "<" <> s <> ">"
+data Output a = Output {unO :: Output' a}
 
-data Markup context target = forall w hiddenContext. Widget w hiddenContext target => Markup (context -> hiddenContext) (w hiddenContext target)
+type family Test a
 
-markup :: forall super sub target w b. (SubContext super sub, Widget w sub target) => w sub target -> Markup super target
-markup = Markup subContext
+type instance Test () = ()
 
-text :: (SubContext super sub, Widget Text sub target) => String -> Markup super target
+type family Output' a where
+  Output' Inline = String
+
+instance Widget Text Inline Output where
+  toWidget (Text t) = Output t
+
+instance Widget Button Inline Output where
+  toWidget (Button s) = Output $ "<" <> s <> ">"
+
+data Markup context target = forall w. Widget w context target => Markup (w context target)
+
+markup :: (Widget w ctx target) => w ctx target -> Markup ctx target
+markup = Markup
+
+text :: (Widget Text ctx target) => String -> Markup ctx target
 text s = markup (Text s)
 
-runMarkup :: forall target context. context -> Markup context target -> target
-runMarkup context (Markup f elem) = toWidget (f context) elem
+runMarkup :: Markup context target -> target context
+runMarkup (Markup elem) = toWidget elem
 
-test :: Widget Text Inline a => Markup Inline a
+test :: Markup Inline Output
 test = text "Hello"
-
--- transitive :: Widget Text Inline a => Markup Web a
--- transitive = text "Hello"
 
 
