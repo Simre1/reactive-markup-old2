@@ -21,17 +21,17 @@ maintainer:         simre4775@gmail.com
 -- category:
 extra-source-files: CHANGELOG.md
 
-executable gui
+library
     main-is:          Main.hs
-    other-modules: Contexts
+    exposed-modules:  ReactiveMarkup.Widget, ReactiveMarkup.Widgets.Base, ReactiveMarkup.Contexts.Base
 
     -- Modules included in this executable, other than Main.
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.14.3.0
-    hs-source-dirs:   app
+    build-depends:    base ^>=4.14.3.0, text, containers, vector
+    hs-source-dirs:   src
     default-language: Haskell2010
     default-extensions:
       DataKinds
@@ -47,3 +47,5 @@ executable gui
       RankNTypes
       ExistentialQuantification
       ScopedTypeVariables
+      InstanceSigs
+      StandaloneKindSignatures

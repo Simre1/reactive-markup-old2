@@ -7,10 +7,10 @@ import Data.Proxy
 main :: IO ()
 main = putStrLn "Hello, Haskell!"
 
-class Widget widget context target where
-  toWidget :: widget context target -> target context
+class Widget widget target context where
+  toWidget :: widget target context -> target context
 
-type WidgetKind = * -> (* -> *) -> *
+type WidgetKind = (* -> *) -> * -> *
 
 data Inline
 
