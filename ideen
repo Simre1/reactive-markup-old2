@@ -1,0 +1,16 @@
+Markup AST -> can be later transformed to actual GUI, multiple interpretations
+Context-Sensitive Elements, not each element can be placed in each space
+Event propagation visible through type (makes path of event very explicit but might make two-way bindings cumbersome)
+Delay styling choices, markup should only reflect content -> styling done when writing interpretation
+
+
+Gtk und Web - Implementierung mit anpassbarem Design -> Es sollte einfach sein, Elemente anzupassen
+Virtual DOM
+Entscheiden, welche Elemente überhaupt implementiert werden sollten
+Einfacher Web für 2-Data binding (vll. extensible sum type für events?)
+Interaktion mit Ausenwelt überlegen -> Kein Void mehr für Top-level!
+
+Für nächstes Mal:
+GUI Beispiel in verschiedenen Libraries. Unterschied zwischen anderen Bibliotheken.
+
+23.3 10:00 Uhr

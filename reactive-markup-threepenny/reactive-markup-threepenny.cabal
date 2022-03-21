@@ -1,0 +1,56 @@
+cabal-version:      2.4
+name:               reactive-markup-threepenny
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+-- license:
+author:             Simre1
+maintainer:         simre4775@gmail.com
+
+-- A copyright notice.
+-- copyright:
+-- category:
+extra-source-files: CHANGELOG.md
+
+common common
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    GADTs
+    MultiParamTypeClasses
+    DerivingVia
+    GeneralizedNewtypeDeriving
+    FlexibleInstances
+    FlexibleContexts
+    TypeApplications
+    TypeOperators
+    RankNTypes
+    ExistentialQuantification
+    ScopedTypeVariables
+    InstanceSigs
+    StandaloneKindSignatures
+    UndecidableInstances
+    OverloadedStrings
+  default-language: Haskell2010
+
+library
+    import: common
+    exposed-modules:  ReactiveMarkup.Target.Threepenny
+    build-depends:    base ^>=4.14.3.0, text, containers, vector, reactive-markup, threepenny-gui
+    hs-source-dirs:   src
+
+executable app
+  import: common
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends: base ^>=4.14.3.0, text, containers, vector, reactive-markup, reactive-markup-threepenny
+
