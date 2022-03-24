@@ -20,6 +20,9 @@ import Data.Coerce (coerce)
 import Data.Functor.Const
 import Data.Foldable (sequenceA_)
 import System.Mem.StableName
+import Data.Functor.Identity
+import Data.Functor.Product
+import SimpleEvents (EventTrigger(triggerEvent))
 
 data Gtk
 
@@ -228,3 +231,34 @@ runGtk app = do
       ]
 
   void $ #run app Nothing
+
+
+data Trigger a = forall b. Trigger (a -> b) (EventTrigger b)
+data ModelState a = ModelState (SE.Dynamic a) (Trigger a) (Update a)
+
+initiateModel :: ZipTraverseF m => m Identity -> IO (m ModelState)
+initiateModel = traverseF $ \f (Identity a) -> do
+      (d,t) <- f a >>= SE.newDynamic
+      val <- f a
+      pure $ ModelState d (Trigger undefined t) (Update val (triggerEvent t))
+
+
+makeUpdateModel :: ZipTraverseF x => x ModelState -> IO (x Update)
+makeUpdateModel = traverseF $ \f (ModelState a b _) -> do
+  val <- SE.current (SE.toBehavior a) >>= f
+  pure $ Update val undefined
+
+-- test :: Model (Product SE.Dynamic SE.EventTrigger) -> IO ()
+-- test (Model a b) = do
+--   SE.triggerEvent (rightProduct a) $ "hello"
+--   newValues >>= SE.triggerEvent (rightProduct b)
+--   where 
+--     newValues :: IO [Product SE.Dynamic SE.EventTrigger Int]
+--     newValues = pure . unwrap <$> (initiateModel (Wrap (Identity 5)))
+
+
+-- update :: (m Set -> m Set) -> m (Product SE.Dynamic SE.EventTrigger) -> IO ()
+-- update = undefined
+--   where
+--     combined :: m (Product Set (Product SE.Dynamic SE.EventTrigger))
+--     combined = zip

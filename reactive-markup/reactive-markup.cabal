@@ -42,6 +42,8 @@ common common
     OverloadedStrings
     DuplicateRecordFields
     DeriveGeneric
+    StandaloneDeriving
+    FunctionalDependencies
   default-language: Haskell2010
 
 library
