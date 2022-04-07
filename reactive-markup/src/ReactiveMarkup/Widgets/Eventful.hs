@@ -55,3 +55,12 @@ textField = oMarkup $ TextField @t (pure "") Nothing Nothing
 
 data NumberField t e = NumberField
 
+data Counter t c e = Counter (Dynamic t Int -> Markup t c e)
+
+counter :: Render (Counter t c) t c => (Dynamic t Int -> Markup t c e) -> Markup t c e
+counter = markup . Counter
+
+data MapEventIO t c e = forall innerE. MapEventIO  (innerE -> IO (Maybe e)) (Markup t c innerE)
+
+mapEventIO :: Render (MapEventIO t c) t c => (innerE -> IO (Maybe e)) -> Markup t c innerE -> Markup t c e
+mapEventIO f m = markup $ MapEventIO f m

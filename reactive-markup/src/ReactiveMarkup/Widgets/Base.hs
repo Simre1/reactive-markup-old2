@@ -41,7 +41,13 @@ bold = markup . Bold
 
 -- Multiple Elements
 
-data Blocks t c e = Blocks [Markup t c e]
+data Row t c e = Row [Markup t c e]
 
-blocks :: Render (Blocks t Block) t c => [Markup t Block e] -> Markup t c e
-blocks = markup . Blocks
+row :: Render (Row t Block) t c => [Markup t Block e] -> Markup t c e
+row = markup . Row
+
+
+data Column t c e = Column [Markup t c e]
+
+column :: Render (Column t Block) t c => [Markup t Block e] -> Markup t c e
+column = markup . Column

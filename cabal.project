@@ -1,1 +1,2 @@
 packages: reactive-markup/*.cabal, reactive-markup-gtk/*.cabal
+with-compiler: ghc-8.10.7

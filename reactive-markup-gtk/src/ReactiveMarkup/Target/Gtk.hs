@@ -2,27 +2,29 @@
 
 module ReactiveMarkup.Target.Gtk where
 
+import Control.Concurrent
 import Control.Monad
+import Data.Coerce (coerce)
+import Data.Foldable (sequenceA_)
+import Data.Functor.Const
+import Data.Functor.Identity
+import Data.Functor.Product
 import Data.IORef
 import Data.Text as T
 import Data.Void
+import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Functions as Gtk
 import GI.Pango.Functions ()
+import ReactiveMarkup.App
 import ReactiveMarkup.Contexts.Base
 import ReactiveMarkup.Markup
 import ReactiveMarkup.Widgets.Base
 import ReactiveMarkup.Widgets.Eventful
+import SimpleEvents (EventTrigger (triggerEvent))
 import qualified SimpleEvents as SE
-import ReactiveMarkup.App
-import Data.Coerce (coerce)
-import Data.Functor.Const
-import Data.Foldable (sequenceA_)
 import System.Mem.StableName
-import Data.Functor.Identity
-import Data.Functor.Product
-import SimpleEvents (EventTrigger(triggerEvent))
 
 data Gtk
 
@@ -95,9 +97,17 @@ instance Render (Lift Gtk Block) Gtk Root where
 instance Render (Lift Gtk Inline) Gtk Block where
   render (Lift m) = pangoToWidget $ getConst $ renderMarkup m
 
-instance Render (Blocks Gtk Block) Gtk Block where
-  render (Blocks ms) = MakeGtk $ \handle -> do
+instance Render (Column Gtk Block) Gtk Block where
+  render (Column ms) = MakeGtk $ \handle -> do
     box <- Gtk.boxNew Gtk.OrientationVertical 0
+    forM_ ms $ \m -> do
+      child <- makeGtk (renderMarkup m) handle
+      Gtk.boxAppend box child
+    Gtk.toWidget box
+
+instance Render (Row Gtk Block) Gtk Block where
+  render (Row ms) = MakeGtk $ \handle -> do
+    box <- Gtk.boxNew Gtk.OrientationHorizontal 0
     forM_ ms $ \m -> do
       child <- makeGtk (renderMarkup m) handle
       Gtk.boxAppend box child
@@ -106,7 +116,10 @@ instance Render (Blocks Gtk Block) Gtk Block where
 instance MakeGtk ~ RenderTarget c t => Render (Map c t) c t where
   render (Map f m) = MakeGtk $ \handle -> makeGtk (renderMarkup m) (handle . f)
 
-instance Render (Blocks Gtk Block) Gtk Root where
+instance Render (Column Gtk Block) Gtk Root where
+  render b = render @_ @Gtk @Block b
+
+instance Render (Row Gtk Block) Gtk Root where
   render b = render @_ @Gtk @Block b
 
 instance Render (Button Gtk Inline) Gtk Block where
@@ -127,6 +140,15 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (LocalState s Gtk c) Gtk c w
           maybe (pure ()) handleOuterEvent outerEvent
     makeGtk (renderMarkup $ makeMarkup (coerce dynamicState)) handleInnerEvent
 
+instance RenderTarget Gtk c e ~ MakeGtk e => Render (Counter Gtk c) Gtk c where
+  render (Counter f) = MakeGtk $ \handle -> do
+    (d, t) <- SE.newDynamic 0
+    GLib.timeoutAddSeconds GLib.PRIORITY_DEFAULT 1 $ do
+      SE.current (SE.toBehavior d) >>= SE.triggerEvent t . succ
+      pure True
+    -- Gtk.on widget #destroy $ killThread thread
+    makeGtk (renderMarkup (f $ GtkDynamic d)) handle
+
 instance RenderTarget Gtk c e ~ MakeGtk e => Render (DynamicMarkup s Gtk c) Gtk c where
   render (DynamicMarkup dynamicState makeMarkup) = MakeGtk $ \handleEvent -> do
     frame <- Gtk.boxNew Gtk.OrientationVertical 0
@@ -142,7 +164,6 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (DynamicMarkup s Gtk c) Gtk 
         -- #showAll widget
         generateWidget state =
           makeGtk (renderMarkup (makeMarkup state)) handleEvent
-
 
     let handler = \newState -> generateWidget newState >>= setWidget
 
@@ -165,7 +186,6 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
           whenM (readIORef active) $ do
             a
 
-    
     sequenceA_ $ (\handle -> Gtk.after entry #changed $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
 
     sequenceA_ $ (\handle -> Gtk.onEntryActivate entry $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleActivate
@@ -173,7 +193,6 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
     -- sequenceA_ $ (\handle -> Gtk.afterEntryBufferInsertedText entryBuffer $ \_ _ _ -> protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
 
     let update = \newText -> do
-          print newText
           writeIORef active False
           p <- Gtk.get entry #cursorPosition
           Gtk.setEntryBufferText entryBuffer newText
@@ -184,27 +203,28 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
 
     Gtk.toWidget entry
 
+instance RenderTarget Gtk c e ~ MakeGtk e => Render (MapEventIO Gtk c) Gtk c where
+  render (MapEventIO f m) = MakeGtk $ \handle ->
+    makeGtk (renderMarkup m) (\e -> f e >>= maybe (pure ()) handle)
 
 onDifferentName :: s -> (s -> IO ()) -> IO (s -> IO ())
 onDifferentName s f = do
   stableNameRef <- makeStableName s >>= newIORef
   pure $ \newS -> do
-          newStableName <- makeStableName newS
-          oldStableName <- readIORef stableNameRef
-          when (oldStableName /= newStableName) $ do
-            writeIORef stableNameRef oldStableName
-            f newS
+    newStableName <- makeStableName newS
+    oldStableName <- readIORef stableNameRef
+    when (oldStableName /= newStableName) $ do
+      writeIORef stableNameRef oldStableName
+      f newS
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = do
   b <- c
   when b a
 
-
 runGtk :: App s Gtk e -> IO ()
 runGtk app = do
   (state, trigger) <- SE.newDynamic (appInitialState app)
-
 
   let makeWidget = makeGtk (renderMarkup (appRender app $ coerce state)) $ \e -> do
         s <- SE.current (SE.toBehavior state)
@@ -232,30 +252,60 @@ runGtk app = do
 
   void $ #run app Nothing
 
+-- data ModelState a = ModelState (SE.Dynamic a) (SE.EventTrigger a)
 
-data Trigger a = forall b. Trigger (a -> b) (EventTrigger b)
-data ModelState a = ModelState (SE.Dynamic a) (Trigger a) (Update a)
+-- modelStateGet :: ModelState a -> IO a
+-- modelStateGet (ModelState d t) = SE.current (SE.toBehavior d)
 
-initiateModel :: ZipTraverseF m => m Identity -> IO (m ModelState)
-initiateModel = traverseF $ \f (Identity a) -> do
-      (d,t) <- f a >>= SE.newDynamic
-      val <- f a
-      pure $ ModelState d (Trigger undefined t) (Update val (triggerEvent t))
+-- modelStateSet :: ModelState a -> a -> IO ()
+-- modelStateSet (ModelState _ t) = SE.triggerEvent t
+
+-- initiateModel :: ZipTraverseF m => m Identity -> IO (m ModelState)
+-- initiateModel = traverseF $ \f (Identity a) -> do
+--   (d, t) <- f a >>= SE.newDynamic
+--   val <- f a
+--   pure $ ModelState d t
+
+-- testModel :: IO (Model ModelState)
+-- testModel = initiateModel $ Model (Identity "wow") (Identity [])
+
+-- updateFirst :: Model ModelState -> IO ()
+-- updateFirst (Model (ModelState _ t) _) = SE.triggerEvent t "Hello World!"
+
+-- updateSecond (Model _ (ModelState d t)) = do
+--   v <- runIdentityF <$> initiateModel (IdentityF (Identity 5))
+--   SE.triggerEvent t [v]
+
+-- updateSecondDeeper (Model _ (ModelState d t)) = do
+--   [ModelState d t] <- SE.current $ SE.toBehavior d
+--   SE.triggerEvent t 10
+
+-- printModel :: Model ModelState -> IO ()
+-- printModel (Model (ModelState m1 _) (ModelState m2 _)) = do
+--   SE.current (SE.toBehavior m1) >>= print
+--   list <- SE.current (SE.toBehavior m2)
+--   forM_ list $ \(ModelState mx _) -> do
+--     SE.current (SE.toBehavior mx) >>= print
+
+-- getModelDynamic :: Model ModelState -> Model SE.Dynamic
+-- getModelDynamic = mapF $ \f (ModelState d _) -> f <$> d  
 
 
-makeUpdateModel :: ZipTraverseF x => x ModelState -> IO (x Update)
-makeUpdateModel = traverseF $ \f (ModelState a b _) -> do
-  val <- SE.current (SE.toBehavior a) >>= f
-  pure $ Update val undefined
+
+-- It works?? Further testing & thinking required
+
+-- makeUpdateModel :: ZipTraverseF x => x ModelState -> IO (x Update)
+-- makeUpdateModel = traverseF $ \f (ModelState a b _) -> do
+--   val <- SE.current (SE.toBehavior a) >>= f
+--   pure $ Update val undefined
 
 -- test :: Model (Product SE.Dynamic SE.EventTrigger) -> IO ()
 -- test (Model a b) = do
 --   SE.triggerEvent (rightProduct a) $ "hello"
 --   newValues >>= SE.triggerEvent (rightProduct b)
---   where 
+--   where
 --     newValues :: IO [Product SE.Dynamic SE.EventTrigger Int]
 --     newValues = pure . unwrap <$> (initiateModel (Wrap (Identity 5)))
-
 
 -- update :: (m Set -> m Set) -> m (Product SE.Dynamic SE.EventTrigger) -> IO ()
 -- update = undefined

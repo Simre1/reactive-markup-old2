@@ -47,7 +47,7 @@ common common
 library
     import: common
     exposed-modules:  ReactiveMarkup.Target.Gtk, SimpleEvents
-    build-depends:    base ^>=4.14.3.0, text, containers, vector, gi-gtk, gi-gdk, reactive-markup, gi-pango, data-default, optics-core
+    build-depends:    base ^>=4.14.3.0, text, containers, vector, gi-gtk, gi-gdk, gi-glib, reactive-markup, gi-pango, data-default, optics-core
     hs-source-dirs:   src
 
 
@@ -57,3 +57,9 @@ executable example
   hs-source-dirs: example
   build-depends: base ^>=4.14.3.0, text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
 
+
+executable Intro
+  import: common
+  main-is: Intro.hs
+  hs-source-dirs: example
+  build-depends: base ^>=4.14.3.0, text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
