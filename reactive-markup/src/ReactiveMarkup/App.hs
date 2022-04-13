@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveFunctor #-}
+
 module ReactiveMarkup.App where
 
 import Data.Data
@@ -8,12 +10,74 @@ import ReactiveMarkup.Markup hiding (Empty)
 import Control.Monad (join, forM_)
 import Data.IntMap
 import Data.Coerce
+import Optics.TH
 
-data App s t e = App
-  { appRender :: Dynamic t s -> Markup t Root e,
-    appHandleEvent :: e -> s -> IO s,
-    appInitialState :: s
+import Data.Functor.Classes
+import Data.RHKT
+import Generic.Data (Generic, Generically(..), gmappend)
+import Generic.Data.Orphans ()
+
+
+data App (s :: FData) t e = App
+  { appRender :: s (FunctorF (Dynamic t)) -> Markup t Root e,
+    appHandleEvent :: e -> s UpdateF -> IO (),
+    appInitialState :: s IdentityF
   }
+
+
+
+type Model :: FData
+data Model f = Model {
+    field1 :: f (Direct Int),
+    field2 :: f (Nested (List (Direct Int)))
+  } deriving Generic
+
+
+
+deriving instance (Show (f (Direct Int)), Show (f (Nested (List (Direct Int))))) => Show (Model f)
+
+instance ZipTraverseF Model where
+  zipTraverseF fD fN (Model a1 a2) (Model b1 b2) = Model <$> fD a1 b1 <*> fN a2 b2
+
+data UpdateF (f :: F) = UpdateF (ApplyNestedAndDirect f UpdateF) (ApplyNestedAndDirect f IdentityF -> IO ())
+
+nested :: UpdateF f -> ApplyNestedAndDirect f UpdateF
+nested (UpdateF a _) = a
+
+update :: UpdateF f -> ApplyNestedAndDirect f IdentityF -> IO ()
+update (UpdateF _ a) = a
+
+-- iModel :: Model IdentityF
+-- iModel = Model (coerce @Int 3) (coerce @[Int] [1,2,3])
+
+-- toUpdate :: ZipTraverseF x => x IdentityF -> x UpdateF
+-- toUpdate = mapF (\(IdentityF a) -> UpdateF () (\_ -> pure ())) (\(IdentityF a) -> UpdateF )
+
+-- newtype UpdateEnv a =  UpdateEnv a deriving (Functor, Show)
+
+-- -- getS :: S a -> a
+-- -- getS (S a) = a
+-- -- getS (K a) = a
+
+-- data Update a = Keep a | Set a | Propagate a deriving Show
+
+-- getUpdateValue :: Update a -> a
+-- getUpdateValue (Keep a) = a
+-- getUpdateValue (Set a) = a
+-- getUpdateValue (Propagate a) = a
+
+-- type UpdateF = FunctorF Update
+
+
+-- nested :: Lens' (UpdateEnv (UpdateF f)) (ApplyNestedAndDirect f UpdateF)
+-- nested = lens get set
+--   where
+--     get (UpdateEnv (FunctorF (Set a))) = a
+--     get (UpdateEnv (FunctorF (Keep a))) = a
+--     get (UpdateEnv (FunctorF (Propagate a))) = a
+--     set _ a = UpdateEnv $ FunctorF $ Set a
+
+
 
 -- data StateHook s e = StateHook
 --   { shHandleEvent :: e -> IO ()
@@ -50,7 +114,7 @@ data App s t e = App
 
 -- data IdentityF a (hyper :: Hyper -> *) = IdentityF a
 
--- data SimpleF a (b :: Loop f) = SimpleWhenMatchedF 
+-- data Simple a (b :: Loop f) = SimpleWhenMatchedF 
 
 -- data TestModel (a :: Hyper) = TestModel {
 --     testModel1 :: Int
@@ -111,56 +175,98 @@ data App s t e = App
 
 -- works = "WORKS!!!"
 
-newtype F = FRec ((F -> *) -> *)
 
-type family ApplyF (f :: F) (a :: F -> *) where
-    ApplyF (FRec f) a = f a
+-- data Nested = N | D
 
-newtype SimpleF a (f :: F) = SimpleF a
+-- newtype F = FRec ((F -> *) -> *)
 
-newtype ListF (a :: F -> *) (f :: F) = ListF [ApplyF f a]
+-- type family ApplyF (f :: F) (a :: F -> *) where
+--     ApplyF (FRec f) a = f a
 
-data TModel (f :: F) = TModel {
-  tm1 :: ApplyF f (SimpleF Int),
-  tm2 :: ApplyF f (ListF (SimpleF Int))
-}
+-- data Wrap a f = Wrap  deriving Show
 
-test :: TModel (FRec IdentityF)
-test = TModel (coerce @Int 3) (coerce @[Int] [2])
+-- newtype Simple a (f :: F) = Simple ()
 
-test2 :: IdentityF TModel
-test2 = IdentityF test
+-- instance Show (ApplyF f (Wrap a)) => Show (Simple a f) where
+--   show (Simple f) = show f
 
-newtype IdentityF (a :: F -> *) = IdentityF (a (FRec IdentityF))
+-- newtype List (a :: F -> *) (f :: F) = List [ApplyF f a]
 
-newtype IOF (a :: F -> *) = IOF (IO (a (FRec IOF)))
+-- instance Show (ApplyF f a) =>Show (List a f) where
+--   show (List elems) = "List " ++ show elems
 
-newtype PrintF (a :: F -> *) = PrintF (a (FRec IdentityF) -> IO ())
+-- data TModel (f :: F) = TModel {
+--   tm1 :: ApplyF f (Simple Int),
+--   tm2 :: ApplyF f (List (Simple Int))
+-- }
 
-
-
-class TraverseF (x :: F -> *) where
- traverseF :: Applicative m => 
-   (forall a. TraverseF a => f a -> m (g a)) ->
-   x (FRec f) -> m (x (FRec g))
-
-instance TraverseF TModel where
-  -- emptyF = Model None None
-  traverseF f (TModel s1 s2) =
-    let g1 = f s1
-        g2 = f s2
-     in TModel <$> g1 <*> g2
-
-instance TraverseF (SimpleF a) where
-  traverseF f (SimpleF a) = pure $ SimpleF a
+-- test :: TModel (FRec IdentityF)
+-- test = TModel (IdentityF $ Simple (IdentityF Wrap)) (coerce @[Int] [2])
 
 
-instance TraverseF x => TraverseF (ListF x) where
-  traverseF f (ListF elems) = ListF <$> traverse f elems
+-- test2 :: TModel (FRec PrintF)
+-- test2 = TModel (PrintF print (Simple (PrintF print (Wrap 2)))) undefined
+
+-- newtype IdentityF (a :: F -> *) = IdentityF (a (FRec IdentityF))
+
+-- instance Show (a (FRec IdentityF)) => Show (IdentityF a) where
+--   show (IdentityF a) = "IdentityF " ++ show a
+
+-- newtype IOF (a :: F -> *) = IOF (IO (a (FRec IOF)))
+
+-- data PrintF (a :: F -> *) = PrintF (a (FRec IdentityF) -> IO ()) (a (FRec PrintF))
+
+-- instance ZipF (Simple a) where
+--   zipF _ (Simple a) _ = Simple a
+
+-- testzip2 :: ZipF a => a (FRec IdentityF) -> a (FRec PrintF) -> a (FRec IOF)
+-- testzip2 = zipF $ \(IdentityF a) (PrintF f fd) -> IOF $ do
+--   f a
+--   pure $ testzip2 a fd
+
+
+
+-- class TraverseF (x :: F -> *) where
+--  traverseF :: Applicative m => 
+--    (forall a. TraverseF a => f a -> m (g a)) ->
+--    x (FRec f) -> m (x (FRec g))
+
+-- class ZipF (x :: F -> *) where
+--  zipF :: (forall a. ZipF a => f a -> g a -> h a) -> x (FRec f) -> x (FRec g) -> x (FRec h)
+
+-- instance TraverseF TModel where
+--   -- emptyF = Model None None
+--   traverseF f (TModel s1 s2) =
+--     let g1 = f s1
+--         g2 = f s2
+--      in TModel <$> g1 <*> g2
+
+
+-- instance TraverseF (Simple a) where
+--   traverseF f (Simple a) = pure $ Simple a
+
+
+-- instance TraverseF x => TraverseF (List x) where
+--   traverseF f (List elems) = List <$> traverse f elems
   
+-- instance ZipF x => ZipF (List x) where
+--   zipF f (List elems1) (List elems2) = List (f <$> elems1 <*> elems2)
   
-tryTraverseF :: TraverseF x => x (FRec IOF) -> IO (x (FRec IdentityF))
-tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
+-- data TwoF (x :: F -> *) = TwoF (x (FRec IdentityF)) (x (FRec IdentityF))  
+
+-- instance Show (x (FRec IdentityF)) => Show (TwoF x) where
+--   show (TwoF a b) = "TwoF " ++ show a ++ show b
+
+ 
+      
+-- ziptest :: List (Simple Int) (FRec IdentityF)
+-- ziptest = List [coerce @Int 3]
+
+-- zipped :: List (Simple Int) (FRec TwoF)
+-- zipped = zipF (\(IdentityF a) (IdentityF b) -> TwoF a b) ziptest ziptest
+
+-- tryTraverseF :: TraverseF x => x (FRec IOF) -> IO (x (FRec IdentityF))
+-- tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
 
 
 -- newtype F = Arg (F -> * *)
@@ -175,7 +281,7 @@ tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
 -- -- newtype instance ApplyF2 (Arg f) a = ApplyF2 ()
 
 
--- newtype SimpleF a (f :: F) = SimpleF a
+-- newtype Simple a (f :: F) = Simple a
 
 
 -- data TModel (a :: F -> *) = TModel {
@@ -184,7 +290,7 @@ tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
 -- }
 
 -- test :: TModel (ApplyF IdentityF)
--- test = TModel (IdentityF $ SimpleF 3) 3
+-- test = TModel (IdentityF $ Simple 3) 3
 
 -- test2 :: IdentityF TModel
 -- test2 = IdentityF $ (ApplyF test)

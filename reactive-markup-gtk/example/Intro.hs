@@ -14,15 +14,16 @@ import ReactiveMarkup.Widgets.Eventful
 
 main :: IO ()
 main = do
-  runGtk app
+  pure ()
+--   runGtk app
 
-app :: App Void Gtk Void
-app =
-  App
-    { appRender = \_ -> gui,
-      appHandleEvent = \_ -> pure undefined,
-      appInitialState = undefined
-    }
+-- app :: App Void Gtk Void
+-- app =
+--   App
+--     { appRender = \_ -> gui,
+--       appHandleEvent = \_ -> pure undefined,
+--       appInitialState = undefined
+--     }
 
 gui :: Markup Gtk Root Void
 -- GUIs are complex and take a lot of effort to create.

@@ -6,6 +6,7 @@ import Prelude hiding ((.), id)
 import Control.Category
 import Data.Text
 import Data.Void
+import Data.RHKT
 
 class Render widget target context where
   render :: widget e -> RenderTarget target context e
@@ -13,6 +14,8 @@ class Render widget target context where
 type family RenderTarget target context :: * -> *
 
 data family Dynamic target a :: *
+
+type DynamicF target = FunctorF (Dynamic target)
 
 data Markup target context e = forall widget. Render widget target context => Markup (widget e)
 

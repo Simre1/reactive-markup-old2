@@ -1,2 +1,13 @@
 packages: reactive-markup/*.cabal, reactive-markup-gtk/*.cabal
 with-compiler: ghc-8.10.7
+
+package jni
+        extra-lib-dirs: 
+            /usr/lib/jvm/default/lib/server
+            /usr/lib/jvm/default/lib
+        extra-include-dirs: 
+            /usr/lib/jvm/default/include
+            /usr/lib/jvm/default/include/linux
+                      
+            
+ 

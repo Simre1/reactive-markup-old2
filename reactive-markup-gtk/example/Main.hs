@@ -13,6 +13,7 @@ import ReactiveMarkup.Target.Gtk
 import ReactiveMarkup.Widgets.Base
 import ReactiveMarkup.Widgets.Eventful
 import Data.Functor
+import Data.RHKT
 
 {-
 
@@ -29,36 +30,40 @@ main :: IO ()
 main = do
   runGtk app
 
-newtype TempModel = Celsius Int deriving (Show)
+newtype TempModel f = TempModel {
+  modelCelsius :: f (Direct Int)
+  }
 
-fahreinheit :: TempModel -> Int
-fahreinheit (Celsius n) = (n * 9 `quot` 5) + 32
+instance ZipTraverseF TempModel where
+  zipTraverseF fD fN (TempModel a) (TempModel b) = TempModel <$> fD a b
 
-celsius :: TempModel -> Int
-celsius (Celsius n) = n
+fahreinheit :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
+fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model
 
-setFahreinheit :: Int -> TempModel -> TempModel
-setFahreinheit n _ = Celsius $ (n - 32) * 5 `quot` 9
+celsius :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
+celsius model = unF $ modelCelsius model
 
-setCelsius :: Int -> TempModel -> TempModel
-setCelsius n _ = Celsius n
+setFahreinheit :: TempModel UpdateF -> Int -> IO ()
+setFahreinheit m n = setCelsius m $ ((n - 32) * 5) `quot` 9
+
+setCelsius :: TempModel UpdateF -> Int -> IO ()
+setCelsius (TempModel m) = update m
 
 data AppEvent = SetCelsius Int | SetFahreinheit Int | Search Text
 
-handleEvent :: AppEvent -> TempModel -> IO TempModel
-handleEvent (SetFahreinheit n) m = pure $ setFahreinheit n m
-handleEvent (SetCelsius n) m = pure $ setCelsius n m
-handleEvent (Search t) m = print t $> m
+handleEvent :: AppEvent -> TempModel UpdateF -> IO ()
+handleEvent (SetFahreinheit n) m = setFahreinheit m n
+handleEvent (SetCelsius n) m =  setCelsius m n
+handleEvent (Search t) m = print t
 
-renderGUI :: Dynamic Gtk TempModel -> Markup Gtk Root AppEvent
+renderGUI :: TempModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
 renderGUI model =
   column
     [ "Celsius",
       (fmap :: (Int -> AppEvent) -> Markup Gtk Block Int -> Markup Gtk Block AppEvent) SetCelsius $
-        numberField
-          ((fmap :: (TempModel -> Int) -> Dynamic Gtk TempModel -> Dynamic Gtk Int) celsius model),
+        numberField (celsius model),
       "Fahreinheit",
-      SetFahreinheit <$> numberField (fahreinheit <$> model),
+      SetFahreinheit <$> numberField (fahreinheit model),
       searchComponent
     ]
 
@@ -67,7 +72,7 @@ app =
   App
     { appRender = renderGUI,
       appHandleEvent = handleEvent,
-      appInitialState = Celsius 0
+      appInitialState = TempModel $ IdentityF 0
     }
 
 numberField :: Dynamic Gtk Int -> Markup Gtk Block Int

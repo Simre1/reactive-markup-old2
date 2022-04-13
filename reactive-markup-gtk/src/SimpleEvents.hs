@@ -46,6 +46,7 @@ module SimpleEvents
     customBehavior,
     customEvent,
     customDynamic,
+    mapEventTrigger,
     -- ** Creating Event Handlers
     makeEventHandler,
     simpleEventHandler,
@@ -215,6 +216,9 @@ customBehavior = Behavior . runIOInES
 
 customDynamic :: Behavior a -> Event a -> Dynamic a
 customDynamic = Dynamic
+
+mapEventTrigger :: (b -> IO a) -> EventTrigger a -> EventTrigger b
+mapEventTrigger f (EventTrigger trigger) = EventTrigger (\b -> f b >>= trigger)
 
 -- | Allows events to know the value of their previous execution!
 --

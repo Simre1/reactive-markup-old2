@@ -49,7 +49,7 @@ common common
 
 library
     import: common
-    exposed-modules:  ReactiveMarkup.Markup, ReactiveMarkup.Widgets.Base, ReactiveMarkup.Contexts.Base, ReactiveMarkup.Widgets.Eventful, ReactiveMarkup.App
-    build-depends:    base ^>=4.14.3.0, text, containers, vector, blaze-markup, blaze-html, profunctors, categories, formatting, data-default, optics-core, optics-th
+    exposed-modules:  ReactiveMarkup.Markup, ReactiveMarkup.Widgets.Base, ReactiveMarkup.Contexts.Base, ReactiveMarkup.Widgets.Eventful, ReactiveMarkup.App, Data.RHKT
+    build-depends:    base, text, containers, vector, blaze-markup, blaze-html, profunctors, categories, formatting, data-default, optics-core, optics-th, generic-data
     hs-source-dirs:   src
 
