@@ -1,9 +1,8 @@
 module Data.RHKT where
 
-import Control.Monad (forM_, join, zipWithM)
-import Data.Coerce
-import Data.Data
-import Data.Functor.Identity
+import Control.Monad (zipWithM)
+import Data.Functor.Identity (Identity (runIdentity))
+import GHC.Generics (Generic)
 
 type FData = ((F -> *) -> *)
 
@@ -18,9 +17,9 @@ class ZipTraverseF (t :: (F -> *) -> *) where
     t g ->
     m (t h)
 
-type family ApplyNestedAndDirect (a :: F) (t :: (F -> *)) where
-  ApplyNestedAndDirect (Nested f) t = f t
-  ApplyNestedAndDirect (Direct v) t = v
+type family ApplyF (a :: F) (t :: (F -> *)) where
+  ApplyF (Nested f) t = f t
+  ApplyF (Direct v) t = v
 
 type family ApplyOnlyNested (a :: F) (t :: (F -> *)) where
   ApplyOnlyNested (Nested f) t = f t
@@ -40,6 +39,11 @@ foldF fD fN x =
   let Fold m _ = traverseF (\a -> Fold (fD a) a) (\a -> Fold (fN a) a) x
    in m
 
+foldF2 :: (ZipTraverseF x, Monoid m) => (forall a. f (Direct a) -> g (Direct a) -> m) -> (forall a. ZipTraverseF a => f (Nested a) -> g (Nested a) -> m) -> x f -> x g -> m
+foldF2 fD fN x y =
+  let Fold m _ = zipTraverseF (\a b -> Fold (fD a b) a) (\a b -> Fold (fN a b) a) x y
+   in m
+
 data Fold m a = Fold m a
 
 instance Functor (Fold m) where
@@ -49,7 +53,7 @@ instance Monoid m => Applicative (Fold m) where
   pure = Fold mempty
   (Fold m1 f) <*> (Fold m2 a) = Fold (m1 <> m2) (f a)
 
-newtype List (a :: F) (f :: F -> *) = List [f a]
+newtype List (a :: F) (f :: F -> *) = List {children :: [f a]} deriving Generic
 
 deriving instance Show (f a) => Show (List a f)
 
@@ -59,12 +63,20 @@ instance ZipTraverseF f => ZipTraverseF (List (Nested f)) where
 instance ZipTraverseF (List (Direct a)) where
   zipTraverseF fD fN (List elems1) (List elems2) = List <$> zipWithM fD elems1 elems2
 
-newtype IdentityF (a :: F) = IdentityF (ApplyNestedAndDirect a IdentityF)
+newtype IdentityF (a :: F) = IdentityF {runIdentityF :: ApplyF a IdentityF}
 
-deriving instance Show (ApplyNestedAndDirect a IdentityF) => Show (IdentityF a)
+deriving instance Show (ApplyF a IdentityF) => Show (IdentityF a)
 
-newtype FunctorF (f :: * -> *) (a :: F) = FunctorF {unF :: f (ApplyNestedAndDirect a (FunctorF f))}
+newtype FunctorF (f :: * -> *) (a :: F) = FunctorF {unF :: f (ApplyF a (FunctorF f))}
 
-deriving instance Show (f (ApplyNestedAndDirect a (FunctorF f))) => Show (FunctorF f a)
+deriving instance Show (f (ApplyF a (FunctorF f))) => Show (FunctorF f a)
 
-newtype ShowFData (m :: FData) f = ShowFData (m f)
+newtype Wrap (x :: F) (f :: F -> *) = Wrap {
+  wrapped :: f x
+}
+
+instance ZipTraverseF (Wrap (Direct a)) where
+  zipTraverseF fD _ (Wrap a) (Wrap b) = Wrap <$> fD a b
+
+instance ZipTraverseF a => ZipTraverseF (Wrap (Nested a)) where
+  zipTraverseF _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b

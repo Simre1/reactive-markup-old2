@@ -1,4 +1,6 @@
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE BangPatterns #-}
+
 module ReactiveMarkup.Target.Gtk.RenderInstances where
 
 import Data.RHKT
@@ -18,14 +20,10 @@ import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Functions as Gtk
 import GI.Pango.Functions ()
 import ReactiveMarkup.App
-import ReactiveMarkup.Contexts.Base
+import ReactiveMarkup.Context
 import ReactiveMarkup.Markup
-import ReactiveMarkup.Widgets.Base
-import ReactiveMarkup.Widgets.Eventful
-import SimpleEvents (EventTrigger (triggerEvent))
+import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
-import System.Mem.StableName
-import System.IO.Unsafe
 
 data Gtk
 
@@ -37,7 +35,7 @@ type instance RenderTarget Gtk Block = MakeGtk
 
 type instance RenderTarget Gtk Root = MakeGtk
 
-newtype instance Dynamic Gtk a = GtkDynamic (SE.Dynamic a) deriving (Functor, Applicative)
+newtype instance Dynamic Gtk a = GtkDynamic (SE.Dynamic a) deriving (Functor, Applicative, Monad)
 
 pangoToWidget :: Text -> MakeGtk e
 pangoToWidget t = MakeGtk . const $ do
@@ -62,13 +60,13 @@ instance Render Words Gtk Block where
 instance Render Words Gtk Root where
   render w = pangoToWidget $ renderInline w
 
-instance Render (Emphasis Gtk Inline) Gtk Inline where
-  render (Emphasis m) = Const $ "<i>" <> getConst (renderMarkup m) <> "</i>"
+instance Render (Italic Gtk Inline) Gtk Inline where
+  render (Italic m) = Const $ "<i>" <> getConst (renderMarkup m) <> "</i>"
 
-instance Render (Emphasis Gtk Inline) Gtk Block where
+instance Render (Italic Gtk Inline) Gtk Block where
   render w = pangoToWidget $ renderInline w
 
-instance Render (Emphasis Gtk Inline) Gtk Root where
+instance Render (Italic Gtk Inline) Gtk Root where
   render w = pangoToWidget $ renderInline w
 
 instance Render (Bold Gtk Inline) Gtk Inline where
@@ -124,14 +122,14 @@ instance Render (Row Gtk Block) Gtk Root where
   render b = render @_ @Gtk @Block b
 
 instance Render (Button Gtk Inline) Gtk Block where
-  render (Button t) = MakeGtk $ \handle -> do
+  render (Button t (ButtonOptions clickF)) = MakeGtk $ \handle -> do
     label <- makeGtk (pangoToWidget $ getConst $ renderMarkup t) absurd
     button <- Gtk.buttonNew
     Gtk.buttonSetChild button (Just label)
-    Gtk.onButtonClicked button $ handle ButtonClick
+    maybe mempty (\e -> void $ Gtk.onButtonClicked button $ handle e) clickF
     Gtk.toWidget button
 
-instance RenderTarget Gtk c e ~ MakeGtk e => Render (LocalState s Gtk c) Gtk c where
+instance (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (LocalState s Gtk c) Gtk c, RenderTarget Gtk c e ~ MakeGtk e) => Render (LocalState s Gtk c) Gtk c where
   render (LocalState update initial makeMarkup) = MakeGtk $ \handleOuterEvent -> do
     (dynamicState, updateState) <- SE.newDynamic initial
     let handleInnerEvent innerEvent = do
@@ -141,19 +139,18 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (LocalState s Gtk c) Gtk c w
           maybe (pure ()) handleOuterEvent outerEvent
     makeGtk (renderMarkup $ makeMarkup (coerce dynamicState)) handleInnerEvent
 
-instance RenderTarget Gtk c e ~ MakeGtk e => Render (Counter Gtk c) Gtk c where
-  render (Counter f) = MakeGtk $ \handle -> do
+instance (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (Counter Gtk c) Gtk c, RenderTarget Gtk c e ~ MakeGtk e) => Render (Counter Gtk c) Gtk c where
+  render (Counter intervall f) = MakeGtk $ \handle -> do
     (d, t) <- SE.newDynamic 0
-    GLib.timeoutAddSeconds GLib.PRIORITY_DEFAULT 1 $ do
+    GLib.timeoutAdd GLib.PRIORITY_DEFAULT (round (intervall * 1000)) $ do
       SE.current (SE.toBehavior d) >>= SE.triggerEvent t . succ
       pure True
     -- Gtk.on widget #destroy $ killThread thread
     makeGtk (renderMarkup (f $ GtkDynamic d)) handle
 
-instance RenderTarget Gtk c e ~ MakeGtk e => Render (DynamicMarkup s Gtk c) Gtk c where
+instance (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (DynamicMarkup s Gtk c) Gtk c, RenderTarget Gtk c e ~ MakeGtk e) => Render (DynamicMarkup s Gtk c) Gtk c where
   render (DynamicMarkup dynamicState makeMarkup) = MakeGtk $ \handleEvent -> do
     frame <- Gtk.boxNew Gtk.OrientationVertical 0
-
     -- Gtk.frameSetShadowType frame Gtk.ShadowTypeNone
     state <- SE.current $ SE.toBehavior (coerce dynamicState)
 
@@ -162,11 +159,17 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (DynamicMarkup s Gtk c) Gtk 
           cleanUp <- join $ readIORef cleanUpRef
           writeIORef cleanUpRef (Gtk.boxRemove frame widget)
           Gtk.boxAppend frame widget
-        -- #showAll widget
-        generateWidget state =
-          makeGtk (renderMarkup (makeMarkup state)) handleEvent
 
-    let handler = \newState -> generateWidget newState >>= setWidget
+        -- #showAll widget
+        generateWidget state = do
+          !s <- pure state
+          makeGtk (renderMarkup (makeMarkup s)) handleEvent
+
+    let handler newState = do
+          w <- generateWidget newState
+          setWidget w
+
+
 
     unregisterWidgetUpdate <-
       SE.reactimate (SE.toEvent $ coerce dynamicState) $ SE.simpleEventHandler handler
@@ -175,8 +178,8 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (DynamicMarkup s Gtk c) Gtk 
     Gtk.on widget #destroy (SE.liftES unregisterWidgetUpdate)
     pure widget
 
-instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
-  render (TextField value handleActivate handleChange) = MakeGtk $ \handleEvent -> do
+instance (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (TextField Gtk) Gtk c, RenderTarget Gtk c e ~ MakeGtk e) => Render (TextField Gtk) Gtk c where
+  render (TextField (TextFieldOptions value handleActivate handleChange)) = MakeGtk $ \handleEvent -> do
     entry <- Gtk.entryNew
     entryBuffer <- Gtk.entryGetBuffer entry
     currentValue <- SE.current $ SE.toBehavior $ SE.onlyTriggerOnChange $ coerce value
@@ -187,9 +190,9 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
           whenM (readIORef active) $ do
             a
 
-    sequenceA_ $ (\handle -> Gtk.after entry #changed $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
+    sequenceA_ $ (\handle -> Gtk.after entry #changed $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> handleChange
 
-    sequenceA_ $ (\handle -> Gtk.onEntryActivate entry $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleActivate
+    sequenceA_ $ (\handle -> Gtk.onEntryActivate entry $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> handleActivate
     -- sequenceA_ $ (\handle -> Gtk.afterEntryBufferDeletedText entryBuffer $ \_ _ -> protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
     -- sequenceA_ $ (\handle -> Gtk.afterEntryBufferInsertedText entryBuffer $ \_ _ _ -> protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
 
@@ -204,11 +207,9 @@ instance RenderTarget Gtk c e ~ MakeGtk e => Render (TextField Gtk) Gtk c where
 
     Gtk.toWidget entry
 
-instance RenderTarget Gtk c e ~ MakeGtk e => Render (MapEventIO Gtk c) Gtk c where
+instance (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (MapEventIO Gtk c) Gtk c, RenderTarget Gtk c e ~ MakeGtk e) => Render (MapEventIO Gtk c) Gtk c where
   render (MapEventIO f m) = MakeGtk $ \handle ->
     makeGtk (renderMarkup m) (\e -> f e >>= maybe (pure ()) handle)
-    
-    
     
 
 whenM :: Monad m => m Bool -> m () -> m ()

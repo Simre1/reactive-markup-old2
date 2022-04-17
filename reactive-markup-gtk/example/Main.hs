@@ -7,11 +7,10 @@ import Data.Void
 import Optics.Core
 import Optics.Generic
 import ReactiveMarkup.App
-import ReactiveMarkup.Contexts.Base
 import ReactiveMarkup.Markup
+import ReactiveMarkup.Widget
+import ReactiveMarkup.Context
 import ReactiveMarkup.Target.Gtk
-import ReactiveMarkup.Widgets.Base
-import ReactiveMarkup.Widgets.Eventful
 import Data.Functor
 import Data.RHKT
 
@@ -43,18 +42,18 @@ fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model
 celsius :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
 celsius model = unF $ modelCelsius model
 
-setFahreinheit :: TempModel UpdateF -> Int -> IO ()
+setFahreinheit :: TempModel (UpdateF r) -> Int -> IO r
 setFahreinheit m n = setCelsius m $ ((n - 32) * 5) `quot` 9
 
-setCelsius :: TempModel UpdateF -> Int -> IO ()
-setCelsius (TempModel m) = update m
+setCelsius :: TempModel (UpdateF r) -> Int -> IO r
+setCelsius (TempModel m) = pure . update m
 
 data AppEvent = SetCelsius Int | SetFahreinheit Int | Search Text
 
-handleEvent :: AppEvent -> TempModel UpdateF -> IO ()
+handleEvent :: Monoid r => AppEvent -> TempModel (UpdateF r) -> IO r
 handleEvent (SetFahreinheit n) m = setFahreinheit m n
 handleEvent (SetCelsius n) m =  setCelsius m n
-handleEvent (Search t) m = print t
+handleEvent (Search t) m = print t $> mempty
 
 renderGUI :: TempModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
 renderGUI model =
@@ -67,12 +66,13 @@ renderGUI model =
       searchComponent
     ]
 
-app :: App TempModel Gtk AppEvent
+app :: App Gtk TempModel AppEvent
 app =
   App
     { appRender = renderGUI,
       appHandleEvent = handleEvent,
-      appInitialState = TempModel $ IdentityF 0
+      appInitialState = TempModel $ IdentityF 0,
+      appName = "Temperature Example"
     }
 
 numberField :: Dynamic Gtk Int -> Markup Gtk Block Int
@@ -80,8 +80,8 @@ numberField state =
   let text :: Dynamic Gtk Text = pack . show <$> state
    in filterEvents parseNumber $ textField $ (#value .~ text) . (#change ?~ id)
   where
-    parseNumber :: TextFieldEvent -> Maybe Int
-    parseNumber (TextFieldEvent t) =
+    parseNumber :: Text -> Maybe Int
+    parseNumber t =
       either
         (const Nothing)
         ( \(num, t) ->
@@ -104,7 +104,7 @@ searchComponent = localState handleSearchEvent "" searchWithButton
     searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
     searchWithButton searchText = 
       row
-        [ textField $ (#value .~ searchText) . (#change ?~ (\(TextFieldEvent t) -> UpdateSearchText t)),
+        [ textField $ (#value .~ searchText) . (#change ?~ UpdateSearchText),
           SearchButtonClicked <$ button "Search"
         ]
 

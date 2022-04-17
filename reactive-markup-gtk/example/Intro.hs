@@ -1,23 +1,17 @@
-import Data.Default
-import Data.Functor
-import Data.Text as T
-import qualified Data.Text.Read as T
 import Data.Void
-import Optics.Core
-import Optics.Generic
 import ReactiveMarkup.App
-import ReactiveMarkup.Contexts.Base
+import ReactiveMarkup.Context
 import ReactiveMarkup.Markup
 import ReactiveMarkup.Target.Gtk
-import ReactiveMarkup.Widgets.Base
-import ReactiveMarkup.Widgets.Eventful
+import ReactiveMarkup.Widget
 
 main :: IO ()
 main = do
   pure ()
+
 --   runGtk app
 
--- app :: App Void Gtk Void
+-- app :: App Gtk Void Void
 -- app =
 --   App
 --     { appRender = \_ -> gui,
@@ -164,7 +158,7 @@ mapEventIO' = mapEventIO
 -- Another option is localState, which makes it possible for components
 -- to have internal state and change that state based on gui event
 
--- Given an initial state and a function which takes the inner event and 
+-- Given an initial state and a function which takes the inner event and
 -- produces new state and/or produces an outer event,
 -- localState will allow you to use the state when creating your gui.
 
@@ -203,7 +197,6 @@ text' = text "I am a polymorphic label"
 
 -- This way, you can reuse the same code for different gui frameworks.
 
-
 -- The second type parameter sets the context. Some gui components you can only use in specific contexts.
 bold' :: Markup Gtk Inline Void -> Markup Gtk Inline Void
 bold' = bold
@@ -215,7 +208,6 @@ bold' = bold
 
 -- gui = bold (text "Bold text")
 -- Ok. Inline markup can be made bold.
-
 
 -- Another example:
 textBlock :: Markup Gtk Block Void
@@ -229,7 +221,8 @@ textInline = text "I am a text in the inline context! "
 -- Type error. You cannot combine block markup.
 
 combinedInline :: Markup Gtk Inline Void
-combinedInline = emphasis textInline <> bold textInline
+combinedInline = italic textInline <> bold textInline
+
 -- Ok. You can combine inline markup.
 
 gui =

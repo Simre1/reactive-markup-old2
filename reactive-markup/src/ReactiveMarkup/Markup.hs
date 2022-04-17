@@ -1,15 +1,31 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
+
+
+
 
 module ReactiveMarkup.Markup where
 
-import Prelude hiding ((.), id)
-import Control.Category
-import Data.Text
-import Data.Void
-import Data.RHKT
+import Data.RHKT (FunctorF)
+import Data.Void (Void)
+import GHC.TypeLits (TypeError, ErrorMessage(..))
+import Data.Kind (Constraint)
 
 class Render widget target context where
   render :: widget e -> RenderTarget target context e
+
+type family RenderError widget target context where
+   RenderError widget target context = TypeError 
+      (Text "The widget " :<>: ShowType widget :<>: Text " cannot occur in " :<>: 
+      ShowType context :<>: Text " when rendering to " :<>: ShowType target :<>: Text ".") 
+
+type family RenderErrorOnEqual a b widget target context:: Constraint where
+  RenderErrorOnEqual a a _ _ _ = ()
+  RenderErrorOnEqual _ _ widget target context = RenderError widget target context
+
+
+instance {-# OVERLAPPABLE #-} RenderError widget target context => Render widget target context
 
 type family RenderTarget target context :: * -> *
 
@@ -54,14 +70,19 @@ filterEvents f m = markup $ FilterEvents f m
 dropEvents :: Render (FilterEvents t c) t c => Markup t c e -> Markup t c Void
 dropEvents = filterEvents $ const Nothing
 
+newtype Lift t c e = Lift (Markup t c e)
+
+lift :: forall c1 c2 t e. Render (Lift t c1) t c2 => Markup t c1 e -> Markup t c2 e
+lift = markup . Lift
+
 -- Optional Parameters
--- oMarkup :: w e -> Markup t c e
--- oMarkup :: w e -> (w e -> w e) -> Markup t c e
+-- oMarkup :: (o -> w e) -> Markup t c e
+-- oMarkup :: (o -> w e) -> (o -> o) -> Markup t c e
 
 type Optional a b = forall r. (OptionalClass a b r, Out r ~ b, Result a b r ~ r) => r
 
-oMarkup :: forall w t c e. (Render w t c) => w e -> Optional (w e) (Markup t c e)
-oMarkup = makeOptional (markup :: w e -> Markup t c e)
+oMarkup :: forall w t c o e. (Render w t c) => (o -> w e) -> o -> Optional o (Markup t c e)
+oMarkup f o = makeOptional (markup . f :: o -> Markup t c e) o
 
 type family Out r where
   Out (a -> b) = b

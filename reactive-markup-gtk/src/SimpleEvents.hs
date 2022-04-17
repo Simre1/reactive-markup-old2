@@ -281,3 +281,6 @@ instance Applicative Dynamic where
             full <- getFull a
             nextHandlerFull <- handleEvent handlerFull full
             pure $ makeHandler getFull handlerFull
+
+instance Monad Dynamic where
+  a >>= f = switchDynamics $ f <$> a

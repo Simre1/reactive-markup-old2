@@ -1,51 +1,111 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# OverloadedLabels #-}
 
 module ReactiveMarkup.App where
-
-import Data.Data
-import Data.Functor.Identity
+import ReactiveMarkup.Context (Root)
+import ReactiveMarkup.Markup (DynamicF, Markup)
+import Data.Text ( Text )
 import Optics.Core
-import ReactiveMarkup.Contexts.Base
-import ReactiveMarkup.Markup hiding (Empty)
-import Control.Monad (join, forM_)
-import Data.IntMap
 import Data.Coerce
-import Optics.TH
-
-import Data.Functor.Classes
+import Unsafe.Coerce
 import Data.RHKT
-import Generic.Data (Generic, Generically(..), gmappend)
-import Generic.Data.Orphans ()
+import GHC.Generics
 
-
-data App (s :: FData) t e = App
-  { appRender :: s (FunctorF (Dynamic t)) -> Markup t Root e,
-    appHandleEvent :: e -> s UpdateF -> IO (),
-    appInitialState :: s IdentityF
+data App t (s :: FData) e = App
+  { appRender :: s (DynamicF t) -> Markup t Root e,
+    appHandleEvent :: e -> ModelState s -> IO (ModelState s),
+    appInitialState :: s IdentityF,
+    appName :: Text
   }
 
+-- 
+
+data Update (f :: F) =
+  UpdateKeep (ApplyF f Update) |
+  UpdatePropagate (ApplyF f Update) |
+  UpdateSet (ApplyF f IdentityF)
+
+deriving instance (Show (ApplyF f Update), Show (ApplyF f IdentityF)) => Show (Update f)
+
+newtype ModelState a = ModelState { getInternalModelState :: a Update }
+
+deriving instance (Show (a Update)) => Show (ModelState a)
+
+deeper :: forall f. ZipTraverseF (Wrap f) => Lens (Update f) (Update f) (ApplyF f Update) (ApplyF f Update)
+deeper = lens get set
+  where
+    get :: Update f -> ApplyF f Update
+    get (UpdateKeep a) = a
+    get (UpdatePropagate a) = a
+    get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (IdentityF a :: IdentityF f)
+    set (UpdateSet a) _ = UpdateSet a
+    set _ a = UpdatePropagate a
+
+toNewUpdate :: ZipTraverseF x => x IdentityF -> x Update
+toNewUpdate = mapF (\(IdentityF a) -> UpdateKeep a) (\(IdentityF a) -> UpdateKeep (toNewUpdate a))
+
+toID :: ZipTraverseF x => x Update -> x IdentityF
+toID = mapF (IdentityF . getD) (IdentityF . getN)
+  where
+    getN (UpdateKeep a) = toID a
+    getN (UpdatePropagate a) = toID a
+    getN (UpdateSet a) = a
+    getD (UpdateKeep a) = a
+    getD (UpdatePropagate a) = a
+    getD (UpdateSet a) = a
+
+stateSet :: (Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> ApplyF b IdentityF -> ModelState a -> ModelState a
+stateSet l n (ModelState m) = ModelState $ m & withAffineTraversal l atraversal .~ UpdateSet n
+
+stateModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b IdentityF -> ApplyF b IdentityF) -> ModelState a -> ModelState a
+stateModify l f (ModelState m) = ModelState $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runIdentityF . wrapped . toID . Wrap)
+
+stateView :: ZipTraverseF (Wrap b) => ModelState a -> Lens' (a Update) (Update b) -> ApplyF b IdentityF
+stateView (ModelState m) l = let (IdentityF x) = wrapped $ toID $ Wrap $ m ^. l in x
+
+statePreview :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => ModelState a -> Optic' k ix (a Update) (Update b) -> Maybe (ApplyF b IdentityF)
+statePreview (ModelState m) l = (\a -> let (IdentityF x) = wrapped $ toID $ Wrap a in x) <$> preview (withAffineTraversal l atraversal) m
 
 
-type Model :: FData
-data Model f = Model {
-    field1 :: f (Direct Int),
-    field2 :: f (Nested (List (Direct Int)))
-  } deriving Generic
+data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> r)
+
+-- nested :: UpdateF r f -> ApplyF f (UpdateF r)
+-- nested (UpdateF a _) = a
+
+-- update :: UpdateF r f -> ApplyF f IdentityF -> r
+-- update (UpdateF _ a) = a
+
+-- data Keep a = Keep a | Set a | Propagate a
+
+-- getKeep :: Keep a -> a
+-- getKeep (Keep a) = a
+-- getKeep (Set a) = a
+-- getKeep (Propagate a) = a
+
+-- newtype Put a = Put a
+
+-- data SimpleTest = SimpleTest {
+--   test123 :: Int
+-- } deriving Generic
+
+-- test :: Change (Model NewUpdate) -> Change (Model NewUpdate)
+-- test = modify (t %% deeper %% gfield @"simple1") 3
+--   where 
+--     t = gfield @"simple1"
+
+-- data Model f = Model
+--   { simple1 :: f (Nested Simple),
+--     simple2 :: f (Nested (List (Direct Int)))
+--   } deriving Generic
+
+-- newtype Simple f = Simple {
+--   simple1 :: f (Direct Int)
+-- } deriving Generic
+
+-- instance ZipTraverseF Model where
+
+-- instance ZipTraverseF Simple where
 
 
-
-deriving instance (Show (f (Direct Int)), Show (f (Nested (List (Direct Int))))) => Show (Model f)
-
-instance ZipTraverseF Model where
-  zipTraverseF fD fN (Model a1 a2) (Model b1 b2) = Model <$> fD a1 b1 <*> fN a2 b2
-
-data UpdateF (f :: F) = UpdateF (ApplyNestedAndDirect f UpdateF) (ApplyNestedAndDirect f IdentityF -> IO ())
-
-nested :: UpdateF f -> ApplyNestedAndDirect f UpdateF
-nested (UpdateF a _) = a
-
-update :: UpdateF f -> ApplyNestedAndDirect f IdentityF -> IO ()
-update (UpdateF _ a) = a
 
 -- iModel :: Model IdentityF
 -- iModel = Model (coerce @Int 3) (coerce @[Int] [1,2,3])
@@ -68,16 +128,13 @@ update (UpdateF _ a) = a
 
 -- type UpdateF = FunctorF Update
 
-
--- nested :: Lens' (UpdateEnv (UpdateF f)) (ApplyNestedAndDirect f UpdateF)
+-- nested :: Lens' (UpdateEnv (UpdateF f)) (ApplyF f UpdateF)
 -- nested = lens get set
 --   where
 --     get (UpdateEnv (FunctorF (Set a))) = a
 --     get (UpdateEnv (FunctorF (Keep a))) = a
 --     get (UpdateEnv (FunctorF (Propagate a))) = a
 --     set _ a = UpdateEnv $ FunctorF $ Set a
-
-
 
 -- data StateHook s e = StateHook
 --   { shHandleEvent :: e -> IO ()
@@ -98,10 +155,6 @@ update (UpdateF _ a) = a
 
 -- deriving instance Show (ShowF f a)
 
--- data Model f = Model
---   { simple1 :: f String,
---     simple2 :: f ([f Int]) 
---   }
 
 -- data Test (a :: Hyper -> *) = Test (a IdentityF)
 
@@ -109,26 +162,25 @@ update (UpdateF _ a) = a
 
 -- data PrintTest (f :: Hyper) = PrintTest (f PrintTest -> IO ())
 
-
 -- data PrintF (a :: Hyper -> *) = PrintF (a (Loop PrintF) -> IO ())
 
 -- data IdentityF a (hyper :: Hyper -> *) = IdentityF a
 
--- data Simple a (b :: Loop f) = SimpleWhenMatchedF 
+-- data Simple a (b :: Loop f) = SimpleWhenMatchedF
 
 -- data TestModel (a :: Hyper) = TestModel {
 --     testModel1 :: Int
 --   }
 
 -- printTest :: PrintF String
--- printTest = undefined 
+-- printTest = undefined
 
 -- test :: IdentityF String hyper
 -- test = "hello"
 
 -- data Test123 (a :: Hyper) where
 --   Test123 :: End
- 
+
 -- type family Direct (f :: * -> *) where
 --   Direct f = f
 
@@ -141,12 +193,12 @@ update (UpdateF _ a) = a
 -- data None a = None
 
 -- class ZipTraverseF (x :: (* -> *) -> *) where
---  traverseF :: Applicative m => 
+--  traverseF :: Applicative m =>
 --    (forall a b. (a -> m b) -> f a -> m (g b)) ->
 --    x f -> m (x g)
-  -- -- zipF :: (forall a b c. f a -> g b -> h (b,d)) -> x f -> x g -> x h
-  -- foldF2 :: Semigroup m => (forall a b. f a -> g a -> m) -> x f -> x g -> m 
-  -- emptyF :: x None
+-- -- zipF :: (forall a b c. f a -> g b -> h (b,d)) -> x f -> x g -> x h
+-- foldF2 :: Semigroup m => (forall a b. f a -> g a -> m) -> x f -> x g -> m
+-- emptyF :: x None
 
 -- class ZipMapF (m :: (* -> *) -> *) where
 --   zipMapF :: (forall a b. (a -> b) -> f a -> g a -> h b) -> m f -> m g -> m h
@@ -157,11 +209,10 @@ update (UpdateF _ a) = a
 --     let g1 = f pure s1
 --         g2 = f (traverse (f pure)) s2
 --      in Model <$> g1 <*> g2
--- --   foldF2 f (Model s1a s1b) (Model s2a s2b) = 
+-- --   foldF2 f (Model s1a s1b) (Model s2a s2b) =
 --     f s1a s2a <> f s1b s2b
 --   -- zipF f (Model s1a s1b) (Model s2a s2b) =
 --   --   Model (f s1a s2a) (f s1b s2b)
-
 
 -- instance ZipTraverseF (IdentityF a) where
 --   traverseF f (IdentityF a) = IdentityF <$> f pure a
@@ -169,12 +220,10 @@ update (UpdateF _ a) = a
 -- testFoldF2 :: Model Print -> Model Identity -> IO ()
 -- testFoldF2 = foldF2 $ \a b -> pure ()
 
-
 -- test :: Model Identity -> Model Print
--- test = mapF $ \f (Identity a) -> Print (print) (f a) 
+-- test = mapF $ \f (Identity a) -> Print (print) (f a)
 
 -- works = "WORKS!!!"
-
 
 -- data Nested = N | D
 
@@ -203,7 +252,6 @@ update (UpdateF _ a) = a
 -- test :: TModel (FRec IdentityF)
 -- test = TModel (IdentityF $ Simple (IdentityF Wrap)) (coerce @[Int] [2])
 
-
 -- test2 :: TModel (FRec PrintF)
 -- test2 = TModel (PrintF print (Simple (PrintF print (Wrap 2)))) undefined
 
@@ -224,10 +272,8 @@ update (UpdateF _ a) = a
 --   f a
 --   pure $ testzip2 a fd
 
-
-
 -- class TraverseF (x :: F -> *) where
---  traverseF :: Applicative m => 
+--  traverseF :: Applicative m =>
 --    (forall a. TraverseF a => f a -> m (g a)) ->
 --    x (FRec f) -> m (x (FRec g))
 
@@ -241,24 +287,20 @@ update (UpdateF _ a) = a
 --         g2 = f s2
 --      in TModel <$> g1 <*> g2
 
-
 -- instance TraverseF (Simple a) where
 --   traverseF f (Simple a) = pure $ Simple a
 
-
 -- instance TraverseF x => TraverseF (List x) where
 --   traverseF f (List elems) = List <$> traverse f elems
-  
+
 -- instance ZipF x => ZipF (List x) where
 --   zipF f (List elems1) (List elems2) = List (f <$> elems1 <*> elems2)
-  
--- data TwoF (x :: F -> *) = TwoF (x (FRec IdentityF)) (x (FRec IdentityF))  
+
+-- data TwoF (x :: F -> *) = TwoF (x (FRec IdentityF)) (x (FRec IdentityF))
 
 -- instance Show (x (FRec IdentityF)) => Show (TwoF x) where
 --   show (TwoF a b) = "TwoF " ++ show a ++ show b
 
- 
-      
 -- ziptest :: List (Simple Int) (FRec IdentityF)
 -- ziptest = List [coerce @Int 3]
 
@@ -268,21 +310,17 @@ update (UpdateF _ a) = a
 -- tryTraverseF :: TraverseF x => x (FRec IOF) -> IO (x (FRec IdentityF))
 -- tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
 
-
 -- newtype F = Arg (F -> * *)
 
 -- data family ApplyF (m :: ((F -> *) -> *)) (f :: F)
 
 -- newtype instance ApplyF m (Arg f) = ApplyF (m f)
 
-
--- -- data family ApplyF2 (f :: F) a 
+-- -- data family ApplyF2 (f :: F) a
 
 -- -- newtype instance ApplyF2 (Arg f) a = ApplyF2 ()
 
-
 -- newtype Simple a (f :: F) = Simple a
-
 
 -- data TModel (a :: F -> *) = TModel {
 --   tm1 :: a (Arg a),
@@ -297,9 +335,7 @@ update (UpdateF _ a) = a
 
 -- newtype IdentityF (a :: F -> *) = IdentityF (a (Arg (ApplyF IdentityF)))
 
-
-
-data Print a = Print (a -> IO ()) a 
+-- data Print a = Print (a -> IO ()) a
 
 -- type family PrintT a where
 --   PrintT (Simple a Print) = a -> IO ()
@@ -326,34 +362,6 @@ data Print a = Print (a -> IO ()) a
 
 -- listStoreElem :: Int -> Lens' (ListStore String f) String
 -- listStoreElem i =
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- class DeepGet a b | a -> b where
 --   deepGet :: a -> b

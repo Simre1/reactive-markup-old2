@@ -45,11 +45,21 @@ common common
     StandaloneDeriving
     FunctionalDependencies
     PolyKinds
+    ImpredicativeTypes
   default-language: Haskell2010
 
 library
     import: common
-    exposed-modules:  ReactiveMarkup.Markup, ReactiveMarkup.Widgets.Base, ReactiveMarkup.Contexts.Base, ReactiveMarkup.Widgets.Eventful, ReactiveMarkup.App, Data.RHKT
-    build-depends:    base, text, containers, vector, blaze-markup, blaze-html, profunctors, categories, formatting, data-default, optics-core, optics-th, generic-data
+    exposed-modules:  
+      ReactiveMarkup.Markup, 
+      ReactiveMarkup.Widget.Container,
+      ReactiveMarkup.Widget.Inline, 
+      ReactiveMarkup.Widget.Interactive, 
+      ReactiveMarkup.Widget.State, 
+      ReactiveMarkup.Widget,
+      ReactiveMarkup.Context, 
+      ReactiveMarkup.App, 
+      Data.RHKT
+    build-depends:    base, text, containers, vector, data-default, optics-core, optics-th
     hs-source-dirs:   src
 
