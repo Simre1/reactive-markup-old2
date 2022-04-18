@@ -3,7 +3,7 @@ packages:
     reactive-markup-gtk/*.cabal 
 --    reactive-markup-compose,
 --    reactive-markup-compose/jni
-with-compiler: ghc-9.0.1
+with-compiler: ghc-9.2.1
 
 
 

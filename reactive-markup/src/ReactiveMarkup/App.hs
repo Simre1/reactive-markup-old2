@@ -1,5 +1,3 @@
-{-# OverloadedLabels #-}
-
 module ReactiveMarkup.App where
 import ReactiveMarkup.Context (Root)
 import ReactiveMarkup.Markup (DynamicF, Markup)
@@ -30,15 +28,17 @@ newtype ModelState a = ModelState { getInternalModelState :: a Update }
 
 deriving instance (Show (a Update)) => Show (ModelState a)
 
-deeper :: forall f. ZipTraverseF (Wrap f) => Lens (Update f) (Update f) (ApplyF f Update) (ApplyF f Update)
-deeper = lens get set
-  where
-    get :: Update f -> ApplyF f Update
-    get (UpdateKeep a) = a
-    get (UpdatePropagate a) = a
-    get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (IdentityF a :: IdentityF f)
-    set (UpdateSet a) _ = UpdateSet a
-    set _ a = UpdatePropagate a
+instance Deeper Update where
+  type Deep Update a = ApplyF a Update
+  type DeeperC Update a = ZipTraverseF (Wrap a)
+  deeper = lens get set
+    where
+      get :: forall f. ZipTraverseF (Wrap f) => Update f -> ApplyF f Update
+      get (UpdateKeep a) = a
+      get (UpdatePropagate a) = a
+      get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (IdentityF a :: IdentityF f)
+      set (UpdateSet a) _ = UpdateSet a
+      set _ a = UpdatePropagate a
 
 toNewUpdate :: ZipTraverseF x => x IdentityF -> x Update
 toNewUpdate = mapF (\(IdentityF a) -> UpdateKeep a) (\(IdentityF a) -> UpdateKeep (toNewUpdate a))

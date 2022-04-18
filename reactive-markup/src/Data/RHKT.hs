@@ -3,6 +3,8 @@ module Data.RHKT where
 import Control.Monad (zipWithM)
 import Data.Functor.Identity (Identity (runIdentity))
 import GHC.Generics (Generic)
+import Optics.Core hiding (Fold)
+import Data.Kind (Constraint)
 
 type FData = ((F -> *) -> *)
 
@@ -80,3 +82,34 @@ instance ZipTraverseF (Wrap (Direct a)) where
 
 instance ZipTraverseF a => ZipTraverseF (Wrap (Nested a)) where
   zipTraverseF _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
+
+
+class Deeper (f :: F -> *) where
+  type Deep (f :: F -> *) (a :: F)
+  type DeeperC (f :: F -> *) (a :: F) :: Constraint
+  deeper :: DeeperC f a => Lens' (f a) (Deep f a)
+
+class Upwards (f :: F -> *) where
+  type Up (f :: F -> *) (a :: F)
+  type UpC (f :: F -> *) (a :: F) :: Constraint
+  upwards :: UpC f a => Lens' (Up f a) (f a)
+
+instance Deeper IdentityF where
+  type Deep IdentityF a = ApplyF a IdentityF
+  type DeeperC IdentityF a = () 
+  deeper = lens (\(IdentityF a) -> a) (\_ a -> IdentityF a)
+
+instance Upwards IdentityF where
+  type Up IdentityF a = ApplyF a IdentityF
+  type UpC IdentityF a = ()
+  upwards = lens (\a -> IdentityF a) (\_ (IdentityF a) -> a)
+
+instance Deeper (FunctorF f) where
+  type Deep (FunctorF f) a = f (ApplyF a (FunctorF f))
+  type DeeperC (FunctorF f) a = ()
+  deeper = lens (\(FunctorF a) -> a) (\_ a -> FunctorF a)
+
+instance Applicative f => Upwards (FunctorF f) where
+  type Up (FunctorF f) a = f (ApplyF a (FunctorF f))
+  type UpC (FunctorF f) a = ()
+  upwards = lens (\a -> FunctorF a) (\_ (FunctorF a) -> a)

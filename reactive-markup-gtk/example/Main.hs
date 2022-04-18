@@ -1,6 +1,5 @@
 module Main where
 
-import Data.Default
 import Data.Text as T
 import qualified Data.Text.Read as T
 import Data.Void
@@ -13,6 +12,7 @@ import ReactiveMarkup.Context
 import ReactiveMarkup.Target.Gtk
 import Data.Functor
 import Data.RHKT
+import GHC.Generics
 
 {-
 
@@ -31,7 +31,7 @@ main = do
 
 newtype TempModel f = TempModel {
   modelCelsius :: f (Direct Int)
-  }
+  } deriving Generic
 
 instance ZipTraverseF TempModel where
   zipTraverseF fD fN (TempModel a) (TempModel b) = TempModel <$> fD a b
@@ -42,18 +42,18 @@ fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model
 celsius :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
 celsius model = unF $ modelCelsius model
 
-setFahreinheit :: TempModel (UpdateF r) -> Int -> IO r
-setFahreinheit m n = setCelsius m $ ((n - 32) * 5) `quot` 9
+setFahreinheit :: Int -> ModelState TempModel -> ModelState TempModel
+setFahreinheit n model = flip setCelsius model $ ((n - 32) * 5) `quot` 9
 
-setCelsius :: TempModel (UpdateF r) -> Int -> IO r
-setCelsius (TempModel m) = pure . update m
+setCelsius :: Int -> ModelState TempModel -> ModelState TempModel
+setCelsius n model = stateSet #modelCelsius n model
 
 data AppEvent = SetCelsius Int | SetFahreinheit Int | Search Text
 
-handleEvent :: Monoid r => AppEvent -> TempModel (UpdateF r) -> IO r
-handleEvent (SetFahreinheit n) m = setFahreinheit m n
-handleEvent (SetCelsius n) m =  setCelsius m n
-handleEvent (Search t) m = print t $> mempty
+handleEvent :: AppEvent -> ModelState TempModel -> IO (ModelState TempModel)
+handleEvent (SetFahreinheit n) m = pure $ setFahreinheit n m
+handleEvent (SetCelsius n) m = pure $ setCelsius n m
+handleEvent (Search t) m = print t $> m
 
 renderGUI :: TempModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
 renderGUI model =
@@ -105,6 +105,6 @@ searchComponent = localState handleSearchEvent "" searchWithButton
     searchWithButton searchText = 
       row
         [ textField $ (#value .~ searchText) . (#change ?~ UpdateSearchText),
-          SearchButtonClicked <$ button "Search"
+          button "Search" (#click ?~ SearchButtonClicked)
         ]
 

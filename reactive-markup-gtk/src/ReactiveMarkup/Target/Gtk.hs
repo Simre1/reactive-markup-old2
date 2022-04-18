@@ -1,6 +1,5 @@
-{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE BangPatterns #-}
-
+{-# LANGUAGE ImplicitParams #-}
 
 module ReactiveMarkup.Target.Gtk (Gtk, MakeGtk (..), runGtk) where
 
@@ -12,26 +11,31 @@ import Data.RHKT
     FunctorF (FunctorF),
     IdentityF (..),
     ZipTraverseF,
+    foldF2,
     mapF,
-    traverseF, foldF2,
+    traverseF,
   )
+import GHC.IO (unsafeInterleaveIO)
 import qualified GI.GLib as GLib
 import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Functions as Gtk
 import ReactiveMarkup.App
   ( App (appHandleEvent, appInitialState, appRender),
-    UpdateF (..), appName, Update (UpdateKeep, UpdateSet, UpdatePropagate), ModelState (ModelState), getInternalModelState
+    ModelState (ModelState),
+    Update (UpdateKeep, UpdatePropagate, UpdateSet),
+    UpdateF (..),
+    appName,
+    getInternalModelState,
   )
 import ReactiveMarkup.Markup (Dynamic, renderMarkup)
-import ReactiveMarkup.Target.Gtk.RenderInstances
-  ( Dynamic (..),
-    Gtk,
-    MakeGtk (..),
-  )
+import ReactiveMarkup.Target.Gtk.Base
+import ReactiveMarkup.Target.Gtk.Container
+import ReactiveMarkup.Target.Gtk.Inline
+import ReactiveMarkup.Target.Gtk.Interactive
+import ReactiveMarkup.Target.Gtk.State
+import ReactiveMarkup.Target.Gtk.Styling
 import qualified SimpleEvents as SE
-import GHC.IO (unsafeInterleaveIO)
-import Control.DeepSeq
 
 -- onDifferentName :: s -> (s -> IO ()) -> IO (s -> IO ())
 -- onDifferentName s f = do
@@ -61,7 +65,11 @@ runGtk app = do
               #title Gtk.:= appName app,
               #child Gtk.:= widget
             ]
-
+        maybeDisplay <- Gtk.get window #display
+        styleProvider <- gtkStyleProvider
+        maybe (pure ()) 
+          (\display ->Gtk.styleContextAddProviderForDisplay display styleProvider (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_USER))
+          maybeDisplay
         #show window
 
   app <-
@@ -91,9 +99,6 @@ initiateModel = traverseF fD fN
 modelToDynamic :: ZipTraverseF x => x ModelStateF -> x (FunctorF (Dynamic Gtk))
 modelToDynamic = mapF (\(ModelStateF a _) -> FunctorF (GtkDynamic a)) (\(ModelStateF a _) -> FunctorF $ GtkDynamic $ modelToDynamic <$> a)
 
--- makeUpdate :: SE.EventTrigger a -> a -> Update
--- makeUpdate t !a = Update (SE.triggerEvent t a)
-
 modelToUpdate :: ZipTraverseF x => x ModelStateF -> IO (x Update)
 modelToUpdate = traverseF fD fN
   where
@@ -108,7 +113,7 @@ updateModel :: ZipTraverseF x => x ModelStateF -> x Update -> IO ()
 updateModel = foldF2 fD fN
   where
     fD :: ModelStateF (Direct a) -> Update (Direct a) -> IO ()
-    fD (ModelStateF d t) (UpdateSet !a) = SE.triggerEvent t a 
+    fD (ModelStateF d t) (UpdateSet !a) = SE.triggerEvent t a
     fD _ _ = pure ()
     fN :: ZipTraverseF f => ModelStateF (Nested f) -> Update (Nested f) -> IO ()
     fN (ModelStateF d t) (UpdateSet !a) = SE.triggerEvent t a

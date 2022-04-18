@@ -42,12 +42,37 @@ common common
     OverloadedStrings
     OverloadedLabels
     DuplicateRecordFields
+    DeriveGeneric
+    BangPatterns
+    ConstraintKinds
+    QuantifiedConstraints
   default-language: Haskell2010
 
 library
     import: common
-    exposed-modules:  ReactiveMarkup.Target.Gtk, SimpleEvents, ReactiveMarkup.Target.Gtk.RenderInstances
-    build-depends:    base , text, containers, vector, gi-gtk, gi-gdk, gi-glib, reactive-markup, gi-pango, data-default, optics-core, deepseq
+    exposed-modules:  
+      ReactiveMarkup.Target.Gtk,
+      SimpleEvents, 
+      ReactiveMarkup.Target.Gtk.Base,
+      ReactiveMarkup.Target.Gtk.Container,
+      ReactiveMarkup.Target.Gtk.Inline,
+      ReactiveMarkup.Target.Gtk.Interactive,
+      ReactiveMarkup.Target.Gtk.State,
+      ReactiveMarkup.Target.Gtk.Styling
+
+    build-depends:    
+      base, 
+      text,
+      containers,
+      vector,
+      gi-gtk,
+      gi-gdk,
+      gi-glib,
+      reactive-markup,
+      gi-pango,
+      optics-core,
+      bytestring,
+      PyF
     hs-source-dirs:   src
 
 
@@ -55,7 +80,7 @@ executable example
   import: common
   main-is: Main.hs
   hs-source-dirs: example
-  build-depends: base , text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
+  build-depends: base, text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
 
 
 executable Intro
