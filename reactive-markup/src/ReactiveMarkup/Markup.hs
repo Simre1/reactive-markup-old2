@@ -17,15 +17,19 @@ class Render widget target context where
 
 type family RenderError widget target context where
    RenderError widget target context = TypeError 
-      (Text "The widget " :<>: ShowType widget :<>: Text " cannot occur in " :<>: 
-      ShowType context :<>: Text " when rendering to " :<>: ShowType target :<>: Text ".") 
+      (Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot occur in context \"" :<>: 
+      ShowType context :<>: Text "\" when rendering to target \"" :<>: ShowType target :<>: Text "\"." :$$:
+      Text "Most likely you need to use \"" :<>: ShowType widget :<>: Text "\" in another context!"
+      ) 
 
 type family RenderErrorOnEqual a b widget target context:: Constraint where
   RenderErrorOnEqual a a _ _ _ = ()
   RenderErrorOnEqual _ _ widget target context = RenderError widget target context
 
 
-instance {-# OVERLAPPABLE #-} RenderError widget target context => Render widget target context
+instance {-# OVERLAPPABLE #-} RenderError widget target context => 
+  Render widget target context where
+  render = error "no render"
 
 type family RenderTarget target context :: * -> *
 

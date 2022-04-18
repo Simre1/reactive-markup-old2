@@ -65,9 +65,9 @@ instance ZipTraverseF f => ZipTraverseF (List (Nested f)) where
 instance ZipTraverseF (List (Direct a)) where
   zipTraverseF fD fN (List elems1) (List elems2) = List <$> zipWithM fD elems1 elems2
 
-newtype IdentityF (a :: F) = IdentityF {runIdentityF :: ApplyF a IdentityF}
+newtype ID (a :: F) = ID {runID :: ApplyF a ID}
 
-deriving instance Show (ApplyF a IdentityF) => Show (IdentityF a)
+deriving instance Show (ApplyF a ID) => Show (ID a)
 
 newtype FunctorF (f :: * -> *) (a :: F) = FunctorF {unF :: f (ApplyF a (FunctorF f))}
 
@@ -75,14 +75,15 @@ deriving instance Show (f (ApplyF a (FunctorF f))) => Show (FunctorF f a)
 
 newtype Wrap (x :: F) (f :: F -> *) = Wrap {
   wrapped :: f x
-}
+} deriving Generic
+
+deriving instance Show (f x) => Show (Wrap x f)
 
 instance ZipTraverseF (Wrap (Direct a)) where
   zipTraverseF fD _ (Wrap a) (Wrap b) = Wrap <$> fD a b
 
 instance ZipTraverseF a => ZipTraverseF (Wrap (Nested a)) where
   zipTraverseF _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
-
 
 class Deeper (f :: F -> *) where
   type Deep (f :: F -> *) (a :: F)
@@ -94,15 +95,15 @@ class Upwards (f :: F -> *) where
   type UpC (f :: F -> *) (a :: F) :: Constraint
   upwards :: UpC f a => Lens' (Up f a) (f a)
 
-instance Deeper IdentityF where
-  type Deep IdentityF a = ApplyF a IdentityF
-  type DeeperC IdentityF a = () 
-  deeper = lens (\(IdentityF a) -> a) (\_ a -> IdentityF a)
+instance Deeper ID where
+  type Deep ID a = ApplyF a ID
+  type DeeperC ID a = () 
+  deeper = lens (\(ID a) -> a) (\_ a -> ID a)
 
-instance Upwards IdentityF where
-  type Up IdentityF a = ApplyF a IdentityF
-  type UpC IdentityF a = ()
-  upwards = lens (\a -> IdentityF a) (\_ (IdentityF a) -> a)
+instance Upwards ID where
+  type Up ID a = ApplyF a ID
+  type UpC ID a = ()
+  upwards = lens (\a -> ID a) (\_ (ID a) -> a)
 
 instance Deeper (FunctorF f) where
   type Deep (FunctorF f) a = f (ApplyF a (FunctorF f))

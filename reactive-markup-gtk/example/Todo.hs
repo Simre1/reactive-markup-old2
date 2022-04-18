@@ -15,8 +15,21 @@ import ReactiveMarkup.Markup
 import ReactiveMarkup.Target.Gtk
 import ReactiveMarkup.Widget
 
+-- Start the app
+
 main :: IO ()
 main = runGtk app
+
+app :: App Gtk TodoModel AppEvent
+app =
+  App
+    { appName = "Todos",
+      appRender = renderView,
+      appHandleEvent = handleEvent,
+      appInitialState = initialModel
+    }
+
+-- Model definition
 
 type TodoModel :: FData
 newtype TodoModel f = TodoModel
@@ -24,7 +37,7 @@ newtype TodoModel f = TodoModel
   }
   deriving (Generic)
 
-deriving instance Show (TodoModel IdentityF)
+deriving instance Show (TodoModel ID)
 
 type Todo :: FData
 data Todo f = Todo
@@ -33,7 +46,7 @@ data Todo f = Todo
   }
   deriving (Generic)
 
-deriving instance Show (Todo IdentityF)
+deriving instance Show (Todo ID)
 
 instance ZipTraverseF TodoModel where
   zipTraverseF fD fN (TodoModel todos1) (TodoModel todos2) = TodoModel <$> fN todos1 todos2
@@ -41,23 +54,14 @@ instance ZipTraverseF TodoModel where
 instance ZipTraverseF Todo where
   zipTraverseF fD fN (Todo t1 d1) (Todo t2 d2) = Todo <$> fD t1 t2 <*> fD d1 d2
 
-initialState :: TodoModel IdentityF
-initialState = TodoModel $ coerce @[Todo IdentityF] $ [Todo (coerce @Text "Get tea") (coerce False)]
+initialModel :: TodoModel ID
+initialModel = TodoModel $ coerce @[Todo ID] $ [Todo ("Get tea" ^. upwards) (False ^. upwards)]
 
-data AppEvent = SetText Int Text | FlipChecked Int | AddTodo | DeleteTodo Int | PrintTodos
+-- Render View
 
-app :: App Gtk TodoModel AppEvent
-app =
-  App
-    { appName = "Todos",
-      appRender = renderGUI,
-      appHandleEvent = handleEvent,
-      appInitialState = initialState
-    }
-
-renderGUI :: TodoModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
-renderGUI model =
-  let todos' = view #children <$> unF (todos model)
+renderView :: TodoModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
+renderView model =
+  let todos' = todos model ^. deeper % mapping #children
       renderedTodos = dynamicMarkup todos' $ \ts -> column $ uncurry renderTodo <$> zip [0 ..] ts
    in column
         [ renderedTodos,
@@ -68,8 +72,8 @@ renderGUI model =
 renderTodo :: Int -> DynamicF Gtk (Nested Todo) -> Markup Gtk Block AppEvent
 renderTodo nr todo =
   margin Small $
-    let done = unF todo >>= unF . todoDone
-        dText = unF todo >>= unF . todoText
+    let done = view deeper todo >>= view (#todoDone % deeper)
+        dText = view deeper todo >>= view (#todoText % deeper)
      in row $
           margin VerySmall
             <$> [ dynamicMarkup done $ \d -> button (if d then bold "[X]" else bold "[ ]") (#click ?~ FlipChecked nr),
@@ -77,22 +81,27 @@ renderTodo nr todo =
                   button "Delete" (#click ?~ DeleteTodo nr)
                 ]
 
-handleEvent :: AppEvent -> ModelState TodoModel -> IO (ModelState TodoModel)
+
+-- Handling app events
+
+data AppEvent = SetText Int Text | FlipChecked Int | AddTodo | DeleteTodo Int | PrintTodos
+
+handleEvent :: AppEvent -> Model TodoModel -> IO (Model TodoModel)
 handleEvent appEvent model = case appEvent of
-  SetText nr txt -> pure $ stateSet (todo nr % deeper % #todoText) txt model
-  FlipChecked nr -> pure $ stateModify (todo nr % deeper % #todoDone) not model
-  DeleteTodo nr -> pure $ stateModify #todos (#children %~ (\c -> take nr c <> drop (nr + 1) c)) model
+  SetText nr txt -> pure $ modelSet (todo nr % deeper % #todoText) txt model
+  FlipChecked nr -> pure $ modelModify (todo nr % deeper % #todoDone) not model
+  DeleteTodo nr -> pure $ modelModify #todos (#children %~ (\c -> take nr c <> drop (nr + 1) c)) model
   AddTodo ->
     pure $
-      stateModify
+      modelModify
         #todos
         (#children %~ (++ [Todo ("New Todo" ^. upwards) (False ^. upwards) ^. upwards]))
         model
   PrintTodos -> do
-    let todos = stateView model #todos
+    let todos = modelView model #todos
     forM_ (todos ^. #children) $ \todo -> do
-      let text = runIdentityF $ runIdentityF todo ^. #todoText
-          done = runIdentityF $ runIdentityF todo ^. #todoDone
+      let text = todo ^. deeper % #todoText % deeper
+          done = todo ^. deeper % #todoDone % deeper
       T.putStrLn $ (if done then "- [X] " else "- [ ] ") <> text
     T.putStrLn ""
     pure model

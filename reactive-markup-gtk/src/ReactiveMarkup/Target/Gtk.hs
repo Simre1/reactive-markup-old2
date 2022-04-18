@@ -9,7 +9,7 @@ import Data.RHKT
   ( ApplyF,
     F (..),
     FunctorF (FunctorF),
-    IdentityF (..),
+    ID (..),
     ZipTraverseF,
     foldF2,
     mapF,
@@ -22,11 +22,11 @@ import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Functions as Gtk
 import ReactiveMarkup.App
   ( App (appHandleEvent, appInitialState, appRender),
-    ModelState (ModelState),
+    Model (Model),
     Update (UpdateKeep, UpdatePropagate, UpdateSet),
     UpdateF (..),
     appName,
-    getInternalModelState,
+    getInternalModel,
   )
 import ReactiveMarkup.Markup (Dynamic, renderMarkup)
 import ReactiveMarkup.Target.Gtk.Base
@@ -53,8 +53,8 @@ runGtk app = do
 
   let makeWidget = makeGtk (renderMarkup (appRender app $ modelToDynamic model)) $ \e -> do
         state <- modelToUpdate model
-        updatedModelState <- appHandleEvent app e (ModelState state)
-        updateModel model (getInternalModelState updatedModelState)
+        updatedModel <- appHandleEvent app e (Model state)
+        updateModel model (getInternalModel updatedModel)
 
   let activate gtkApp = do
         widget <- makeWidget
@@ -81,55 +81,55 @@ runGtk app = do
 
   void $ #run app Nothing
 
-data ModelStateF (f :: F) = ModelStateF (SE.Dynamic (ApplyF f ModelStateF)) (SE.EventTrigger (ApplyF f IdentityF))
+data ModelF (f :: F) = ModelF (SE.Dynamic (ApplyF f ModelF)) (SE.EventTrigger (ApplyF f ID))
 
-initiateModel :: forall x. ZipTraverseF x => x IdentityF -> IO (x ModelStateF)
+initiateModel :: forall x. ZipTraverseF x => x ID -> IO (x ModelF)
 initiateModel = traverseF fD fN
   where
-    fD :: forall a. IdentityF (Direct a) -> IO (ModelStateF (Direct a))
-    fD (IdentityF a) = do
+    fD :: forall a. ID (Direct a) -> IO (ModelF (Direct a))
+    fD (ID a) = do
       (d, t) <- SE.newDynamic a
-      pure $ ModelStateF d t
-    fN :: forall a. ZipTraverseF a => IdentityF (Nested a) -> IO (ModelStateF (Nested a))
-    fN (IdentityF a) = do
+      pure $ ModelF d t
+    fN :: forall a. ZipTraverseF a => ID (Nested a) -> IO (ModelF (Nested a))
+    fN (ID a) = do
       m <- initiateModel a
       (d, t) <- SE.newDynamic m
-      pure $ ModelStateF d $ SE.mapEventTrigger initiateModel t
+      pure $ ModelF d $ SE.mapEventTrigger initiateModel t
 
-modelToDynamic :: ZipTraverseF x => x ModelStateF -> x (FunctorF (Dynamic Gtk))
-modelToDynamic = mapF (\(ModelStateF a _) -> FunctorF (GtkDynamic a)) (\(ModelStateF a _) -> FunctorF $ GtkDynamic $ modelToDynamic <$> a)
+modelToDynamic :: ZipTraverseF x => x ModelF -> x (FunctorF (Dynamic Gtk))
+modelToDynamic = mapF (\(ModelF a _) -> FunctorF (GtkDynamic a)) (\(ModelF a _) -> FunctorF $ GtkDynamic $ modelToDynamic <$> a)
 
-modelToUpdate :: ZipTraverseF x => x ModelStateF -> IO (x Update)
+modelToUpdate :: ZipTraverseF x => x ModelF -> IO (x Update)
 modelToUpdate = traverseF fD fN
   where
-    fD :: ModelStateF (Direct a) -> IO (Update (Direct a))
-    fD (ModelStateF d t) = unsafeInterleaveIO $ fmap UpdateKeep $ SE.current $ SE.toBehavior d
-    fN :: ZipTraverseF f => ModelStateF (Nested f) -> IO (Update (Nested f))
-    fN (ModelStateF d t) = unsafeInterleaveIO $ do
+    fD :: ModelF (Direct a) -> IO (Update (Direct a))
+    fD (ModelF d t) = unsafeInterleaveIO $ fmap UpdateKeep $ SE.current $ SE.toBehavior d
+    fN :: ZipTraverseF f => ModelF (Nested f) -> IO (Update (Nested f))
+    fN (ModelF d t) = unsafeInterleaveIO $ do
       a <- SE.current $ SE.toBehavior d
       UpdateKeep <$> modelToUpdate a
 
-updateModel :: ZipTraverseF x => x ModelStateF -> x Update -> IO ()
+updateModel :: ZipTraverseF x => x ModelF -> x Update -> IO ()
 updateModel = foldF2 fD fN
   where
-    fD :: ModelStateF (Direct a) -> Update (Direct a) -> IO ()
-    fD (ModelStateF d t) (UpdateSet !a) = SE.triggerEvent t a
+    fD :: ModelF (Direct a) -> Update (Direct a) -> IO ()
+    fD (ModelF d t) (UpdateSet !a) = SE.triggerEvent t a
     fD _ _ = pure ()
-    fN :: ZipTraverseF f => ModelStateF (Nested f) -> Update (Nested f) -> IO ()
-    fN (ModelStateF d t) (UpdateSet !a) = SE.triggerEvent t a
+    fN :: ZipTraverseF f => ModelF (Nested f) -> Update (Nested f) -> IO ()
+    fN (ModelF d t) (UpdateSet !a) = SE.triggerEvent t a
     fN _ (UpdateKeep _) = pure ()
-    fN (ModelStateF d t) (UpdatePropagate a) = do
+    fN (ModelF d t) (UpdatePropagate a) = do
       m <- SE.current $ SE.toBehavior d
       updateModel m a
 
--- modelToUpdateF :: ZipTraverseF x => x ModelStateF -> IO (x (UpdateF Update))
+-- modelToUpdateF :: ZipTraverseF x => x ModelF -> IO (x (UpdateF Update))
 -- modelToUpdateF = traverseF fD fN
 --   where
---     fD :: ModelStateF (Direct a) -> IO (UpdateF Update (Direct a))
---     fD (ModelStateF d t) = do
+--     fD :: ModelF (Direct a) -> IO (UpdateF Update (Direct a))
+--     fD (ModelF d t) = do
 --       v <- unsafeInterleaveIO $ SE.current $ SE.toBehavior d
 --       pure $ UpdateF v (makeUpdate t)
---     fN :: ZipTraverseF f => ModelStateF (Nested f) -> IO (UpdateF Update (Nested f))
---     fN (ModelStateF d t) = do
+--     fN :: ZipTraverseF f => ModelF (Nested f) -> IO (UpdateF Update (Nested f))
+--     fN (ModelF d t) = do
 --       v <- unsafeInterleaveIO $ SE.current (SE.toBehavior d) >>= modelToUpdateF
 --       pure $ UpdateF v (makeUpdate t)

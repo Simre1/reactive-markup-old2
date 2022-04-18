@@ -42,15 +42,15 @@ fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model
 celsius :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
 celsius model = unF $ modelCelsius model
 
-setFahreinheit :: Int -> ModelState TempModel -> ModelState TempModel
+setFahreinheit :: Int -> Model TempModel -> Model TempModel
 setFahreinheit n model = flip setCelsius model $ ((n - 32) * 5) `quot` 9
 
-setCelsius :: Int -> ModelState TempModel -> ModelState TempModel
-setCelsius n model = stateSet #modelCelsius n model
+setCelsius :: Int -> Model TempModel -> Model TempModel
+setCelsius n model = modelSet #modelCelsius n model
 
 data AppEvent = SetCelsius Int | SetFahreinheit Int | Search Text
 
-handleEvent :: AppEvent -> ModelState TempModel -> IO (ModelState TempModel)
+handleEvent :: AppEvent -> Model TempModel -> IO (Model TempModel)
 handleEvent (SetFahreinheit n) m = pure $ setFahreinheit n m
 handleEvent (SetCelsius n) m = pure $ setCelsius n m
 handleEvent (Search t) m = print t $> m
@@ -71,7 +71,7 @@ app =
   App
     { appRender = renderGUI,
       appHandleEvent = handleEvent,
-      appInitialState = TempModel $ IdentityF 0,
+      appInitialState = TempModel $ ID 0,
       appName = "Temperature Example"
     }
 

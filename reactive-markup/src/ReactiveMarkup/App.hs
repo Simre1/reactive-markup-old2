@@ -10,8 +10,8 @@ import GHC.Generics
 
 data App t (s :: FData) e = App
   { appRender :: s (DynamicF t) -> Markup t Root e,
-    appHandleEvent :: e -> ModelState s -> IO (ModelState s),
-    appInitialState :: s IdentityF,
+    appHandleEvent :: e -> Model s -> IO (Model s),
+    appInitialState :: s ID,
     appName :: Text
   }
 
@@ -20,13 +20,13 @@ data App t (s :: FData) e = App
 data Update (f :: F) =
   UpdateKeep (ApplyF f Update) |
   UpdatePropagate (ApplyF f Update) |
-  UpdateSet (ApplyF f IdentityF)
+  UpdateSet (ApplyF f ID)
 
-deriving instance (Show (ApplyF f Update), Show (ApplyF f IdentityF)) => Show (Update f)
+deriving instance (Show (ApplyF f Update), Show (ApplyF f ID)) => Show (Update f)
 
-newtype ModelState a = ModelState { getInternalModelState :: a Update }
+newtype Model a = Model { getInternalModel :: a Update }
 
-deriving instance (Show (a Update)) => Show (ModelState a)
+deriving instance (Show (a Update)) => Show (Model a)
 
 instance Deeper Update where
   type Deep Update a = ApplyF a Update
@@ -36,15 +36,15 @@ instance Deeper Update where
       get :: forall f. ZipTraverseF (Wrap f) => Update f -> ApplyF f Update
       get (UpdateKeep a) = a
       get (UpdatePropagate a) = a
-      get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (IdentityF a :: IdentityF f)
+      get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (ID a :: ID f)
       set (UpdateSet a) _ = UpdateSet a
       set _ a = UpdatePropagate a
 
-toNewUpdate :: ZipTraverseF x => x IdentityF -> x Update
-toNewUpdate = mapF (\(IdentityF a) -> UpdateKeep a) (\(IdentityF a) -> UpdateKeep (toNewUpdate a))
+toNewUpdate :: ZipTraverseF x => x ID -> x Update
+toNewUpdate = mapF (\(ID a) -> UpdateKeep a) (\(ID a) -> UpdateKeep (toNewUpdate a))
 
-toID :: ZipTraverseF x => x Update -> x IdentityF
-toID = mapF (IdentityF . getD) (IdentityF . getN)
+toID :: ZipTraverseF x => x Update -> x ID
+toID = mapF (ID . getD) (ID . getN)
   where
     getN (UpdateKeep a) = toID a
     getN (UpdatePropagate a) = toID a
@@ -53,25 +53,25 @@ toID = mapF (IdentityF . getD) (IdentityF . getN)
     getD (UpdatePropagate a) = a
     getD (UpdateSet a) = a
 
-stateSet :: (Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> ApplyF b IdentityF -> ModelState a -> ModelState a
-stateSet l n (ModelState m) = ModelState $ m & withAffineTraversal l atraversal .~ UpdateSet n
+modelSet :: (Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> ApplyF b ID -> Model a -> Model a
+modelSet l n (Model m) = Model $ m & withAffineTraversal l atraversal .~ UpdateSet n
 
-stateModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b IdentityF -> ApplyF b IdentityF) -> ModelState a -> ModelState a
-stateModify l f (ModelState m) = ModelState $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runIdentityF . wrapped . toID . Wrap)
+modelModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> Model a -> Model a
+modelModify l f (Model m) = Model $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrapped . toID . Wrap)
 
-stateView :: ZipTraverseF (Wrap b) => ModelState a -> Lens' (a Update) (Update b) -> ApplyF b IdentityF
-stateView (ModelState m) l = let (IdentityF x) = wrapped $ toID $ Wrap $ m ^. l in x
+modelView :: ZipTraverseF (Wrap b) => Model a -> Lens' (a Update) (Update b) -> ApplyF b ID
+modelView (Model m) l = let (ID x) = wrapped $ toID $ Wrap $ m ^. l in x
 
-statePreview :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => ModelState a -> Optic' k ix (a Update) (Update b) -> Maybe (ApplyF b IdentityF)
-statePreview (ModelState m) l = (\a -> let (IdentityF x) = wrapped $ toID $ Wrap a in x) <$> preview (withAffineTraversal l atraversal) m
+modelPreview :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Model a -> Optic' k ix (a Update) (Update b) -> Maybe (ApplyF b ID)
+modelPreview (Model m) l = (\a -> let (ID x) = wrapped $ toID $ Wrap a in x) <$> preview (withAffineTraversal l atraversal) m
 
 
-data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> r)
+data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f ID -> r)
 
 -- nested :: UpdateF r f -> ApplyF f (UpdateF r)
 -- nested (UpdateF a _) = a
 
--- update :: UpdateF r f -> ApplyF f IdentityF -> r
+-- update :: UpdateF r f -> ApplyF f ID -> r
 -- update (UpdateF _ a) = a
 
 -- data Keep a = Keep a | Set a | Propagate a
@@ -107,11 +107,11 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 
 
 
--- iModel :: Model IdentityF
+-- iModel :: Model ID
 -- iModel = Model (coerce @Int 3) (coerce @[Int] [1,2,3])
 
--- toUpdate :: ZipTraverseF x => x IdentityF -> x UpdateF
--- toUpdate = mapF (\(IdentityF a) -> UpdateF () (\_ -> pure ())) (\(IdentityF a) -> UpdateF )
+-- toUpdate :: ZipTraverseF x => x ID -> x UpdateF
+-- toUpdate = mapF (\(ID a) -> UpdateF () (\_ -> pure ())) (\(ID a) -> UpdateF )
 
 -- newtype UpdateEnv a =  UpdateEnv a deriving (Functor, Show)
 
@@ -156,7 +156,7 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 -- deriving instance Show (ShowF f a)
 
 
--- data Test (a :: Hyper -> *) = Test (a IdentityF)
+-- data Test (a :: Hyper -> *) = Test (a ID)
 
 -- data Hyper = Loop ((Hyper -> *) -> *)
 
@@ -164,7 +164,7 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 
 -- data PrintF (a :: Hyper -> *) = PrintF (a (Loop PrintF) -> IO ())
 
--- data IdentityF a (hyper :: Hyper -> *) = IdentityF a
+-- data ID a (hyper :: Hyper -> *) = ID a
 
 -- data Simple a (b :: Loop f) = SimpleWhenMatchedF
 
@@ -175,7 +175,7 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 -- printTest :: PrintF String
 -- printTest = undefined
 
--- test :: IdentityF String hyper
+-- test :: ID String hyper
 -- test = "hello"
 
 -- data Test123 (a :: Hyper) where
@@ -214,8 +214,8 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 --   -- zipF f (Model s1a s1b) (Model s2a s2b) =
 --   --   Model (f s1a s2a) (f s1b s2b)
 
--- instance ZipTraverseF (IdentityF a) where
---   traverseF f (IdentityF a) = IdentityF <$> f pure a
+-- instance ZipTraverseF (ID a) where
+--   traverseF f (ID a) = ID <$> f pure a
 
 -- testFoldF2 :: Model Print -> Model Identity -> IO ()
 -- testFoldF2 = foldF2 $ \a b -> pure ()
@@ -249,26 +249,26 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 --   tm2 :: ApplyF f (List (Simple Int))
 -- }
 
--- test :: TModel (FRec IdentityF)
--- test = TModel (IdentityF $ Simple (IdentityF Wrap)) (coerce @[Int] [2])
+-- test :: TModel (FRec ID)
+-- test = TModel (ID $ Simple (ID Wrap)) (coerce @[Int] [2])
 
 -- test2 :: TModel (FRec PrintF)
 -- test2 = TModel (PrintF print (Simple (PrintF print (Wrap 2)))) undefined
 
--- newtype IdentityF (a :: F -> *) = IdentityF (a (FRec IdentityF))
+-- newtype ID (a :: F -> *) = ID (a (FRec ID))
 
--- instance Show (a (FRec IdentityF)) => Show (IdentityF a) where
---   show (IdentityF a) = "IdentityF " ++ show a
+-- instance Show (a (FRec ID)) => Show (ID a) where
+--   show (ID a) = "ID " ++ show a
 
 -- newtype IOF (a :: F -> *) = IOF (IO (a (FRec IOF)))
 
--- data PrintF (a :: F -> *) = PrintF (a (FRec IdentityF) -> IO ()) (a (FRec PrintF))
+-- data PrintF (a :: F -> *) = PrintF (a (FRec ID) -> IO ()) (a (FRec PrintF))
 
 -- instance ZipF (Simple a) where
 --   zipF _ (Simple a) _ = Simple a
 
--- testzip2 :: ZipF a => a (FRec IdentityF) -> a (FRec PrintF) -> a (FRec IOF)
--- testzip2 = zipF $ \(IdentityF a) (PrintF f fd) -> IOF $ do
+-- testzip2 :: ZipF a => a (FRec ID) -> a (FRec PrintF) -> a (FRec IOF)
+-- testzip2 = zipF $ \(ID a) (PrintF f fd) -> IOF $ do
 --   f a
 --   pure $ testzip2 a fd
 
@@ -296,19 +296,19 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 -- instance ZipF x => ZipF (List x) where
 --   zipF f (List elems1) (List elems2) = List (f <$> elems1 <*> elems2)
 
--- data TwoF (x :: F -> *) = TwoF (x (FRec IdentityF)) (x (FRec IdentityF))
+-- data TwoF (x :: F -> *) = TwoF (x (FRec ID)) (x (FRec ID))
 
--- instance Show (x (FRec IdentityF)) => Show (TwoF x) where
+-- instance Show (x (FRec ID)) => Show (TwoF x) where
 --   show (TwoF a b) = "TwoF " ++ show a ++ show b
 
--- ziptest :: List (Simple Int) (FRec IdentityF)
+-- ziptest :: List (Simple Int) (FRec ID)
 -- ziptest = List [coerce @Int 3]
 
 -- zipped :: List (Simple Int) (FRec TwoF)
--- zipped = zipF (\(IdentityF a) (IdentityF b) -> TwoF a b) ziptest ziptest
+-- zipped = zipF (\(ID a) (ID b) -> TwoF a b) ziptest ziptest
 
--- tryTraverseF :: TraverseF x => x (FRec IOF) -> IO (x (FRec IdentityF))
--- tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap IdentityF . tryTraverseF)
+-- tryTraverseF :: TraverseF x => x (FRec IOF) -> IO (x (FRec ID))
+-- tryTraverseF = traverseF $ \(IOF ioA) -> ioA >>= (fmap ID . tryTraverseF)
 
 -- newtype F = Arg (F -> * *)
 
@@ -327,13 +327,13 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f IdentityF -> 
 --   tm2 :: Int
 -- }
 
--- test :: TModel (ApplyF IdentityF)
--- test = TModel (IdentityF $ Simple 3) 3
+-- test :: TModel (ApplyF ID)
+-- test = TModel (ID $ Simple 3) 3
 
--- test2 :: IdentityF TModel
--- test2 = IdentityF $ (ApplyF test)
+-- test2 :: ID TModel
+-- test2 = ID $ (ApplyF test)
 
--- newtype IdentityF (a :: F -> *) = IdentityF (a (Arg (ApplyF IdentityF)))
+-- newtype ID (a :: F -> *) = ID (a (Arg (ApplyF ID)))
 
 -- data Print a = Print (a -> IO ()) a
 
