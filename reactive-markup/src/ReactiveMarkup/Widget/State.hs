@@ -1,16 +1,38 @@
 module ReactiveMarkup.Widget.State where
 
-import ReactiveMarkup.Markup (Dynamic, Markup, Render, markup)
+import Data.RHKT
+import GHC.Generics
+import ReactiveMarkup.App (Model, modelView, modelSet)
+import ReactiveMarkup.Markup (Dynamic, DynamicF, Markup, Render, markup)
+import Optics.Core
 
-data LocalState s t c e = forall innerE. LocalState (s -> innerE -> (Maybe s, Maybe e)) s (Dynamic t s -> Markup t c innerE)
+data LocalUpdate s e = LocalUpdate {localModel :: s, propagatedEvent :: Maybe e}
+  deriving (Generic)
+
+data LocalState s t c e = forall innerE. ZipTraverseF s => LocalState (innerE -> LocalUpdate (Model s) e -> LocalUpdate (Model s) e) (s ID) (s (DynamicF t) -> Markup t c innerE)
 
 localState ::
-  Render (LocalState s t c) t c =>
-  (s -> innerEvent -> (Maybe s, Maybe outerEvent)) ->
+  (ZipTraverseF s, Render (LocalState s t c) t c) =>
+  (innerEvent -> LocalUpdate (Model s) outerEvent -> LocalUpdate (Model s) outerEvent) ->
+  s ID ->
+  (s (DynamicF t) -> Markup t c innerEvent) ->
+  Markup t c outerEvent
+localState f s m = markup $ LocalState f s m
+
+
+simpleLocalState :: forall s t c innerEvent outerEvent. (ZipTraverseF (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
+  (innerEvent -> LocalUpdate s outerEvent -> LocalUpdate s outerEvent) ->
   s ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
-localState f s m = markup $ LocalState f s m
+simpleLocalState f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+  where 
+    f' e (LocalUpdate m _) = 
+      let s = modelView m (gfield @"wrapped")
+          LocalUpdate s' outerEvent =  f e (LocalUpdate s Nothing)
+      in LocalUpdate (modelSet (gfield @"wrapped") s' m) outerEvent
+    makeMarkup' :: Wrap (Direct s) (DynamicF t) -> Markup t c innerEvent
+    makeMarkup' (Wrap (FunctorF s)) = makeMarkup s 
 
 data DynamicMarkup s t c e = DynamicMarkup (Dynamic t s) (s -> Markup t c e)
 

@@ -95,11 +95,11 @@ numberField state =
 data SearchEvent = SearchButtonClicked | UpdateSearchText Text
 
 searchComponent :: Markup Gtk Block AppEvent
-searchComponent = localState handleSearchEvent "" searchWithButton
+searchComponent = simpleLocalState handleSearchEvent "" searchWithButton
   where
-    handleSearchEvent :: Text -> SearchEvent -> (Maybe Text, Maybe AppEvent)
-    handleSearchEvent searchText SearchButtonClicked = (Nothing, Just (Search searchText))
-    handleSearchEvent _ (UpdateSearchText t) = (Just t, Nothing)
+    handleSearchEvent :: SearchEvent -> LocalUpdate Text AppEvent -> LocalUpdate Text AppEvent
+    handleSearchEvent SearchButtonClicked (LocalUpdate searchText _) = LocalUpdate searchText (Just $ Search searchText)
+    handleSearchEvent (UpdateSearchText t) _ = LocalUpdate t Nothing
     
     searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
     searchWithButton searchText = 

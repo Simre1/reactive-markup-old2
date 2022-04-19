@@ -58,7 +58,9 @@ library
       ReactiveMarkup.Target.Gtk.Inline,
       ReactiveMarkup.Target.Gtk.Interactive,
       ReactiveMarkup.Target.Gtk.State,
-      ReactiveMarkup.Target.Gtk.Styling
+      ReactiveMarkup.Target.Gtk.Styling,
+      ReactiveMarkup.Target.Gtk.ModelF
+
 
     build-depends:    
       base, 

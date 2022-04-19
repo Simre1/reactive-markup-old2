@@ -13,7 +13,9 @@ import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
 import ReactiveMarkup.Target.Gtk.Base
 import Data.IORef
+import ReactiveMarkup.Target.Gtk.ModelF
 import Data.Coerce
+import ReactiveMarkup.App
 
 
 instance MakeGtkRender (DynamicMarkup s Gtk c) c e => Render (DynamicMarkup s Gtk c) Gtk c where
@@ -46,13 +48,13 @@ instance MakeGtkRender (DynamicMarkup s Gtk c) c e => Render (DynamicMarkup s Gt
 
 instance MakeGtkRender (LocalState s Gtk c) c e => Render (LocalState s Gtk c) Gtk c where
   render (LocalState update initial makeMarkup) = MakeGtk $ \handleOuterEvent -> do
-    (dynamicState, updateState) <- SE.newDynamic initial
+    model <- initiateModel initial
     let handleInnerEvent innerEvent = do
-          state <- SE.current $ SE.toBehavior dynamicState
-          let (changedState, outerEvent) = update state innerEvent
-          maybe (pure ()) (SE.triggerEvent updateState) changedState
+          modelUpdate <- modelToUpdate model
+          let LocalUpdate modelUpdate' outerEvent = update innerEvent (LocalUpdate (Model modelUpdate) Nothing)
+          updateModel model (getInternalModel modelUpdate')
           maybe (pure ()) handleOuterEvent outerEvent
-    makeGtk (renderMarkup $ makeMarkup (coerce dynamicState)) handleInnerEvent
+    makeGtk (renderMarkup $ makeMarkup (modelToDynamic model)) handleInnerEvent
 
 instance MakeGtkRender (Counter Gtk c) c e => Render (Counter Gtk c) Gtk c where
   render (Counter intervall f) = MakeGtk $ \handle -> do
