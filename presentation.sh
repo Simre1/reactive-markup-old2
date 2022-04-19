@@ -1,1 +1,0 @@
-git ls-files | entr -r cabal run intro
