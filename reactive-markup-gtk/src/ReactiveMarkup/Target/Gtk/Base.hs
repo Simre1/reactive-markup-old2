@@ -16,11 +16,36 @@ import ReactiveMarkup.Markup
 import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
 
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
+
 data Gtk
 
 type instance RenderTarget Gtk Inline = Const Text
 
-newtype MakeGtk e = MakeGtk {makeGtk :: (e -> IO ()) -> IO Gtk.Widget}
+newtype GtkContext e a = GtkContext {runGtkContext :: ReaderT (e -> IO (), Gtk.Widget -> IO ()) IO a}
+  deriving (Functor, Applicative, Monad, MonadIO)
+
+newtype MakeGtk e = MakeGtk {makeGtk :: GtkContext e ()}
+
+askSetWidget :: GtkContext e (Gtk.Widget -> IO ())
+askSetWidget = GtkContext $ snd <$> ask
+
+setWidgetNow :: Gtk.Widget -> GtkContext e ()
+setWidgetNow w = askSetWidget >>= \f -> liftIO (f w)
+
+askHandleEvent :: GtkContext e (e -> IO ())
+askHandleEvent = GtkContext $ fst <$> ask
+
+localSetWidget :: (Gtk.Widget -> IO ()) -> GtkContext e a -> GtkContext e a
+localSetWidget setWidget (GtkContext c) = do
+  handleEvent <- askHandleEvent
+  GtkContext $ local (handleEvent, setWidget) c
+
+localHandleEvent :: (e -> IO ()) -> GtkContext e a -> GtkContext e' a
+localHandleEvent handleEvent (GtkContext c) = do
+  setWidget <- askSetWidget
+  GtkContext $ local (handleEvent, setWidget) c
 
 type instance RenderTarget Gtk Block = MakeGtk
 
@@ -31,8 +56,10 @@ newtype instance Dynamic Gtk a = GtkDynamic (SE.Dynamic a) deriving (Functor, Ap
 type MakeGtkRender w c e = (RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (w e) Gtk c,
     RenderTarget Gtk c e ~ MakeGtk e)
 
-instance RenderTarget Gtk c ~ MakeGtk => Render (FilterEvents Gtk c) Gtk c where
-  render (FilterEvents f m) = MakeGtk $ \handle -> makeGtk (renderMarkup m) (newF handle)
+instance MakeGtkRender (FilterEvents Gtk c) c e => Render (FilterEvents Gtk c) Gtk c where
+  render (FilterEvents f m) = MakeGtk $ do
+    handle <- askHandleEvent
+    localHandleEvent (newF handle) $ makeGtk (renderMarkup m)
     where
       newF h e = maybe (pure ()) h (f e)
 
@@ -51,7 +78,7 @@ whenM c a = do
   when b a
 
 pangoToWidget :: Text -> MakeGtk e
-pangoToWidget t = MakeGtk . const $ do
+pangoToWidget t = MakeGtk $ do
   label <- Gtk.labelNew Nothing
   Gtk.labelSetMarkup label t
-  Gtk.toWidget label
+  Gtk.toWidget label >>= setWidgetNow
