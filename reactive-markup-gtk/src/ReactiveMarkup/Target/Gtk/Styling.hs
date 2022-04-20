@@ -45,16 +45,18 @@ instance
   ) =>
   Render (Margin Gtk c) Gtk c
   where
-  render (Margin pv m) = MakeGtk $ \handle -> do
-    widget <- makeGtk (renderMarkup m) handle
+  render (Margin pv m) = MakeGtk $ do
+    setWidget <- askSetWidget
     let toClass direction v = maybe "" (\s -> "margin-" <> direction <> "-" <> sizeToClass s) v
-    appendClasses widget $
-      [ toClass "top" (marginValuesTop pv),
-        toClass "bottom" (marginValuesBottom pv),
-        toClass "left" (marginValuesLeft pv),
-        toClass "right" (marginValuesRight pv)
-      ]
-    pure widget
+        classes =
+          [ toClass "top" (marginValuesTop pv),
+            toClass "bottom" (marginValuesBottom pv),
+            toClass "left" (marginValuesLeft pv),
+            toClass "right" (marginValuesRight pv)
+          ]
+    localSetWidget (\w -> appendClasses w classes >> setWidget w) $ 
+      makeGtk (renderMarkup m)
+
 
 css :: ByteString
 css = marginCss

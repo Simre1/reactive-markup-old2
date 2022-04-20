@@ -18,34 +18,61 @@ import qualified SimpleEvents as SE
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
+import Data.IORef
 
 data Gtk
 
 type instance RenderTarget Gtk Inline = Const Text
 
-newtype GtkContext e a = GtkContext {runGtkContext :: ReaderT (e -> IO (), Gtk.Widget -> IO ()) IO a}
+newtype GtkContext e a = GtkContext {runGtkContext' :: ReaderT (CleanUp, e -> IO (), Gtk.Widget -> IO ()) IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
 
 newtype MakeGtk e = MakeGtk {makeGtk :: GtkContext e ()}
 
+newtype CleanUp = CleanUp (IO () -> IO ())
+
+makeCleanUp :: IO (CleanUp, IO ())
+makeCleanUp = do
+  ref <- newIORef (pure ())
+  pure $ (CleanUp $ \action -> modifyIORef ref (*>action), join $ atomicModifyIORef ref (\a -> (pure (), a)))
+
 askSetWidget :: GtkContext e (Gtk.Widget -> IO ())
-askSetWidget = GtkContext $ snd <$> ask
+askSetWidget = GtkContext $ (\(_,_,setWidget) -> setWidget) <$> ask
 
 setWidgetNow :: Gtk.Widget -> GtkContext e ()
 setWidgetNow w = askSetWidget >>= \f -> liftIO (f w)
 
 askHandleEvent :: GtkContext e (e -> IO ())
-askHandleEvent = GtkContext $ fst <$> ask
+askHandleEvent = GtkContext $ (\(_,handleEvent, _) -> handleEvent) <$> ask
+
+addCleanUp :: IO () -> GtkContext e ()
+addCleanUp io = do
+  (CleanUp add, _, _) <- GtkContext $ ask
+  liftIO $ add io
+
+applyGtkContext :: (i -> GtkContext e a) -> GtkContext e (i -> IO a)
+applyGtkContext f = do
+  (cleanUp, handleEvent, setWidget) <- GtkContext ask
+  pure $ \i ->
+    let (GtkContext c) = f i
+    in runReaderT c (cleanUp, handleEvent, setWidget)
+
+runGtkContext :: (CleanUp, e -> IO (), Gtk.Widget -> IO ()) -> GtkContext e a -> IO a
+runGtkContext i (GtkContext c) = runReaderT c i
 
 localSetWidget :: (Gtk.Widget -> IO ()) -> GtkContext e a -> GtkContext e a
 localSetWidget setWidget (GtkContext c) = do
-  handleEvent <- askHandleEvent
-  GtkContext $ local (handleEvent, setWidget) c
+  GtkContext $ local (\(cleanUp, handleEvent,_) -> (cleanUp, handleEvent, setWidget)) c
 
 localHandleEvent :: (e -> IO ()) -> GtkContext e a -> GtkContext e' a
 localHandleEvent handleEvent (GtkContext c) = do
-  setWidget <- askSetWidget
-  GtkContext $ local (handleEvent, setWidget) c
+  (cleanUp, _, setWidget) <- GtkContext ask
+  liftIO $ runReaderT c (cleanUp, handleEvent, setWidget)
+
+localCleanUp :: CleanUp -> GtkContext e a -> GtkContext e a
+localCleanUp cleanUp (GtkContext c) = do
+  (_, handleEvent, setWidget) <- GtkContext ask
+  liftIO $ runReaderT c (cleanUp, handleEvent, setWidget)
 
 type instance RenderTarget Gtk Block = MakeGtk
 
@@ -70,7 +97,9 @@ instance Render (Lift Gtk Inline) Gtk Block where
   render (Lift m) = pangoToWidget $ getConst $ renderMarkup m
 
 instance MakeGtk ~ RenderTarget c t => Render (Map c t) c t where
-  render (Map f m) = MakeGtk $ \handle -> makeGtk (renderMarkup m) (handle . f)
+  render (Map f m) = MakeGtk $ do
+    handleEvent <- askHandleEvent
+    localHandleEvent (handleEvent . f) $ makeGtk (renderMarkup m)
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = do

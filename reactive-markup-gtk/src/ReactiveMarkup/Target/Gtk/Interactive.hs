@@ -17,23 +17,27 @@ import ReactiveMarkup.Markup
 import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
+import Control.Monad.IO.Class
 
 instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Inline) Gtk c where
-  render (Button t (ButtonOptions clickF)) = MakeGtk $ \handle -> do
-    label <- makeGtk (pangoToWidget $ getConst $ renderMarkup t) absurd
+  render (Button t (ButtonOptions clickF)) = MakeGtk $ do
     button <- Gtk.buttonNew
-    Gtk.buttonSetChild button (Just label)
-    maybe mempty (\e -> void $ Gtk.onButtonClicked button $ handle e) clickF
-    Gtk.toWidget button
+    handleEvent <- askHandleEvent
+    localSetWidget (\w -> Gtk.buttonSetChild button (Just w)) $
+      localHandleEvent absurd $ 
+        makeGtk (pangoToWidget $ getConst $ renderMarkup t)
+    maybe (pure ()) (\e -> void $ Gtk.onButtonClicked button $ handleEvent e) clickF
+    Gtk.toWidget button >>= setWidgetNow
 
 instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
-  render (TextField (TextFieldOptions value handleActivate handleChange)) = MakeGtk $ \handleEvent -> do
+  render (TextField (TextFieldOptions value handleActivate handleChange)) = MakeGtk $ do
+    handleEvent <- askHandleEvent
     entry <- Gtk.entryNew
     entryBuffer <- Gtk.entryGetBuffer entry
-    currentValue <- SE.current $ SE.toBehavior $ SE.onlyTriggerOnChange $ coerce value
+    currentValue <- liftIO $ SE.current $ SE.toBehavior $ SE.onlyTriggerOnChange $ coerce value
     Gtk.setEntryBufferText entryBuffer currentValue
 
-    active <- newIORef True
+    active <- liftIO $ newIORef True
     let protect a = do
           whenM (readIORef active) $ do
             a
@@ -51,6 +55,6 @@ instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
           Gtk.editableSetPosition entry p
           writeIORef active True
 
-    SE.reactimate (SE.toEvent $ coerce value) $ SE.simpleEventHandler update
+    liftIO $ SE.reactimate (SE.toEvent $ coerce value) $ SE.simpleEventHandler update
 
-    Gtk.toWidget entry
+    Gtk.toWidget entry >>= setWidgetNow
