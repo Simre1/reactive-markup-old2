@@ -60,6 +60,7 @@ library
       ReactiveMarkup.Widget,
       ReactiveMarkup.Context, 
       ReactiveMarkup.App, 
+      ReactiveMarkup
       Data.RHKT
     build-depends:    base, text, containers, vector, data-default, optics-core, optics-th
     hs-source-dirs:   src
