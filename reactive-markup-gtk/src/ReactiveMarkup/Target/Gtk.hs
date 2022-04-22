@@ -38,6 +38,7 @@ import ReactiveMarkup.Target.Gtk.Styling
 import ReactiveMarkup.Update
 import qualified SimpleEvents as SE
 
+
 -- onDifferentName :: s -> (s -> IO ()) -> IO (s -> IO ())
 -- onDifferentName s f = do
 --   stableNameRef <- makeStableName s >>= newIORef
@@ -52,26 +53,32 @@ runGtk :: ZipTraverseF s => App Gtk s e -> IO ()
 runGtk app = do
   model <- initiateModel (appInitialState app)
 
-  let makeWidget = makeGtk (renderMarkup (appRender app $ modelToDynamic model)) $ \e -> do
-        state <- modelToUpdate model
-        updatedModel <- appHandleEvent app e (Model state)
-        updateModel model (getInternalModel updatedModel)
+  (cleanUp, runCleanUp) <- makeCleanUp
 
   let activate gtkApp = do
-        widget <- makeWidget
         window <-
           Gtk.new
             Gtk.ApplicationWindow
             [ #application Gtk.:= gtkApp,
-              #title Gtk.:= appName app,
-              #child Gtk.:= widget
+              #title Gtk.:= appName app
             ]
+        let handle e = do
+              state <- modelToUpdate model
+              updatedModel <- appHandleEvent app e (Model state)
+              updateModel model (getInternalModel updatedModel)
+            setWidget = Gtk.windowSetChild window . Just
+
+
+        runGtkContext (cleanUp, handle, setWidget) $
+            makeGtk (renderMarkup (appRender app $ modelToDynamic model))
+          
         maybeDisplay <- Gtk.get window #display
         styleProvider <- gtkStyleProvider
         maybe
           (pure ())
           (\display -> Gtk.styleContextAddProviderForDisplay display styleProvider (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_USER))
           maybeDisplay
+        
         #show window
 
   app <-
@@ -82,6 +89,7 @@ runGtk app = do
       ]
 
   void $ #run app Nothing
+  runCleanUp
 
 -- modelToUpdateF :: ZipTraverseF x => x ModelF -> IO (x (UpdateF Update))
 -- modelToUpdateF = traverseF fD fN

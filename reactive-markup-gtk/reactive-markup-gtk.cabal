@@ -85,6 +85,11 @@ executable example
   hs-source-dirs: example
   build-depends: base, text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
 
+executable hello
+  import: common
+  main-is: Hello.hs
+  hs-source-dirs: example
+  build-depends: base, text, containers, vector, reactive-markup, reactive-markup-gtk, data-default, optics-core
 
 executable Intro
   import: common

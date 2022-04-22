@@ -90,6 +90,12 @@ instance ZipTraverseF (Wrap (Direct a)) where
 instance ZipTraverseF a => ZipTraverseF (Wrap (Nested a)) where
   zipTraverseF _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
 
+data EmptyF (f :: F -> *) = EmptyF deriving Show
+
+instance ZipTraverseF EmptyF where
+  zipTraverseF fD fN EmptyF EmptyF = pure EmptyF
+
+
 class Deeper (f :: F -> *) where
   type Deep (f :: F -> *) (a :: F)
   type DeeperC (f :: F -> *) (a :: F) :: Constraint

@@ -3,6 +3,7 @@ module ReactiveMarkup.Update where
 import Data.RHKT
 import Optics.Core
 import Data.Data
+import GHC.Generics
 
 data Update (f :: F)
   = UpdateKeep (ApplyF f Update)
@@ -50,8 +51,30 @@ toID = mapF (ID . getD) (ID . getN)
     getD (UpdatePropagate a) = a
     getD (UpdateSet a) = a
 
-modelSet :: ApplyF x ID -> Update x
-modelSet n = UpdateSet n
+
+newtype ReadUpdate a = ReadUpdate (Update a)
+
+get :: Lens (Update a) (Update a) (ApplyF a ReadUpdate) (ApplyF a Update)
+get = undefined
+
+data TestModel f = TestModel {
+  m1 :: f (Direct Int),
+  m2 :: f (Nested (List (Direct Int)))
+} deriving Generic
+
+-- test :: TestModel Update -> _
+-- test m = m ^. (gfield @"m2") % get
+
+test123 :: Lens (TestModel f) (TestModel f) (f (Direct Int)) (f (Direct Int))
+test123 = (gfield @"m1")
+
+-- test :: ZipTraverseF a => Lens' (UpdateF a) (ApplyF a ID)
+-- test = lens get set
+--   where
+--     get 
+
+-- modelSet :: ApplyF x ID -> Update x
+-- modelSet n = UpdateSet n
 
 -- modelModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> Model a -> Model a
 -- modelModify l f (Model m) = Model $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrapped . toID . Wrap)

@@ -16,56 +16,54 @@ import Data.IORef
 import ReactiveMarkup.Target.Gtk.ModelF
 import Data.Coerce
 import ReactiveMarkup.Update
-
+import Control.Monad.IO.Class
 
 instance MakeGtkRender (DynamicMarkup s Gtk c) c e => Render (DynamicMarkup s Gtk c) Gtk c where
-  render (DynamicMarkup dynamicState makeMarkup) = MakeGtk $ \handleEvent -> do
-    frame <- Gtk.boxNew Gtk.OrientationVertical 0
-    -- Gtk.frameSetShadowType frame Gtk.ShadowTypeNone
-    state <- SE.current $ SE.toBehavior (coerce dynamicState)
+  render (DynamicMarkup dynamicState makeMarkup) = MakeGtk $ do
 
-    cleanUpRef <- newIORef (pure ())
-    let setWidget widget = do
-          cleanUp <- join $ readIORef cleanUpRef
-          writeIORef cleanUpRef (Gtk.boxRemove frame widget)
-          Gtk.boxAppend frame widget
+    (cleanUp, runCleanUp) <- liftIO makeCleanUp
+    addCleanUp runCleanUp
 
-        -- #showAll widget
-        generateWidget state = do
-          !s <- pure state
-          makeGtk (renderMarkup (makeMarkup s)) handleEvent
+    generateWidget <- localCleanUp cleanUp $ applyGtkContext $ \state -> do
+        liftIO runCleanUp
+        makeGtk (renderMarkup (makeMarkup state))
 
-    let handler newState = do
-          w <- generateWidget newState
-          setWidget w
+    liftIO $ SE.current (SE.toBehavior (coerce dynamicState)) >>= generateWidget
 
-    unregisterWidgetUpdate <-
-      SE.reactimate (SE.toEvent $ coerce dynamicState) $ SE.simpleEventHandler handler
-    generateWidget state >>= setWidget
-    widget <- Gtk.toWidget frame
-    Gtk.on widget #destroy (SE.liftES unregisterWidgetUpdate)
-    pure widget
+    unregisterWidgetUpdate <- liftIO $
+      SE.reactimate (SE.toEvent $ coerce dynamicState) $ SE.simpleEventHandler generateWidget
+
+    addCleanUp (SE.liftES unregisterWidgetUpdate)
+
+    pure ()
 
 instance MakeGtkRender (LocalState s Gtk c) c e => Render (LocalState s Gtk c) Gtk c where
-  render (LocalState update initial makeMarkup) = MakeGtk $ \handleOuterEvent -> do
-    model <- initiateModel initial
+  render (LocalState update initial makeMarkup) = MakeGtk $ do
+    handleOuterEvent <- askHandleEvent
+
+    model <- liftIO $ initiateModel initial
+
     let handleInnerEvent innerEvent = do
           modelUpdate <- modelToUpdate model
           let LocalUpdate modelUpdate' outerEvent = update innerEvent (LocalUpdate (Model modelUpdate) Nothing)
           updateModel model (getInternalModel modelUpdate')
           maybe (pure ()) handleOuterEvent outerEvent
-    makeGtk (renderMarkup $ makeMarkup (modelToDynamic model)) handleInnerEvent
+
+    localHandleEvent handleInnerEvent $
+      makeGtk (renderMarkup $ makeMarkup (modelToDynamic model))
 
 instance MakeGtkRender (Counter Gtk c) c e => Render (Counter Gtk c) Gtk c where
-  render (Counter intervall f) = MakeGtk $ \handle -> do
-    (d, t) <- SE.newDynamic 0
+  render (Counter intervall f) = MakeGtk $ do
+    (d, t) <- liftIO $ SE.newDynamic 0
     GLib.timeoutAdd GLib.PRIORITY_DEFAULT (round (intervall * 1000)) $ do
       SE.current (SE.toBehavior d) >>= SE.triggerEvent t . succ
       pure True
     -- Gtk.on widget #destroy $ killThread thread
-    makeGtk (renderMarkup (f $ GtkDynamic d)) handle
+    makeGtk (renderMarkup (f $ GtkDynamic d))
 
 
 instance MakeGtkRender (MapEventIO Gtk c) c e => Render (MapEventIO Gtk c) Gtk c where
-  render (MapEventIO f m) = MakeGtk $ \handle ->
-    makeGtk (renderMarkup m) (\e -> f e >>= maybe (pure ()) handle)
+  render (MapEventIO f m) = MakeGtk $ do
+    handleEvent <- askHandleEvent
+    localHandleEvent (\e -> f e >>= maybe (pure ()) handleEvent) $
+      makeGtk (renderMarkup m)
