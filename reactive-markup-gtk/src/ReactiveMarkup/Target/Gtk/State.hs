@@ -17,6 +17,7 @@ import ReactiveMarkup.Target.Gtk.ModelF
 import Data.Coerce
 import ReactiveMarkup.Update
 import Control.Monad.IO.Class
+import Data.Functor.Identity
 
 instance MakeGtkRender (DynamicMarkup s Gtk c) c e => Render (DynamicMarkup s Gtk c) Gtk c where
   render (DynamicMarkup dynamicState makeMarkup) = MakeGtk $ do
@@ -45,8 +46,8 @@ instance MakeGtkRender (LocalState s Gtk c) c e => Render (LocalState s Gtk c) G
 
     let handleInnerEvent innerEvent = do
           modelUpdate <- modelToUpdate model
-          let LocalUpdate modelUpdate' outerEvent = update innerEvent (LocalUpdate (Model modelUpdate) Nothing)
-          updateModel model (getInternalModel modelUpdate')
+          let (outerEvent, modelUpdate') = runIdentity $ runModelM modelUpdate (update innerEvent)
+          updateModel model (modelUpdate')
           maybe (pure ()) handleOuterEvent outerEvent
 
     localHandleEvent handleInnerEvent $

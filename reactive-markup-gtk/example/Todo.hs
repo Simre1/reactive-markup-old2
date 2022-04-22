@@ -3,17 +3,15 @@
 
 import Control.Monad (forM_)
 import Data.Coerce
-import Data.RHKT
 import Data.Text (Text)
 import qualified Data.Text.IO as T
 import Data.Void
 import GHC.Generics
 import Optics.Core
-import ReactiveMarkup.App
-import ReactiveMarkup.Context
-import ReactiveMarkup.Markup
+import ReactiveMarkup
 import ReactiveMarkup.Target.Gtk
-import ReactiveMarkup.Widget
+import Control.Monad.IO.Class
+
 
 -- Start the app
 
@@ -86,25 +84,24 @@ renderTodo nr todo =
 
 data AppEvent = SetText Int Text | FlipChecked Int | AddTodo | DeleteTodo Int | PrintTodos
 
-handleEvent :: AppEvent -> TodoModel Update -> IO (TodoModel Update)
-handleEvent appEvent model = case appEvent of
-  SetText nr txt -> pure $ model todo nr % deeper % #todoText model
-  FlipChecked nr -> pure $ modelModify (todo nr % deeper % #todoDone) not model
-  DeleteTodo nr -> pure $ modelModify #todos (#children %~ (\c -> take nr c <> drop (nr + 1) c)) model
+handleEvent :: AppEvent -> ModelM TodoModel IO ()
+handleEvent appEvent = case appEvent of
+  SetText nr txt -> mPut (todo nr % deeper % #todoText) txt
+  FlipChecked nr -> mModify (todo nr % deeper % #todoDone) not
+  DeleteTodo nr -> mModify #todos (#children %~ (\c -> take nr c <> drop (nr + 1) c))
   AddTodo ->
-    pure $
-      modelModify
+    
+      mModify
         #todos
         (#children %~ (++ [Todo ("New Todo" ^. upwards) (False ^. upwards) ^. upwards]))
-        model
   PrintTodos -> do
-    let todos = modelView model #todos
-    forM_ (todos ^. #children) $ \todo -> do
+    todos <- mGet #todos
+    liftIO $ forM_ (todos ^. #children) $ \todo -> do
       let text = todo ^. deeper % #todoText % deeper
           done = todo ^. deeper % #todoDone % deeper
       T.putStrLn $ (if done then "- [X] " else "- [ ] ") <> text
-    T.putStrLn ""
-    pure model
+    liftIO $ T.putStrLn ""
+    
   where
     todo :: Int -> AffineTraversal' (TodoModel Update) (Update (Nested Todo))
     todo nr = #todos % deeper % #children % ix nr

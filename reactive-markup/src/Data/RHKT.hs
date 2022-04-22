@@ -78,7 +78,7 @@ newtype FunctorF (f :: * -> *) (a :: F) = FunctorF {unF :: f (ApplyF a (FunctorF
 deriving instance Show (f (ApplyF a (FunctorF f))) => Show (FunctorF f a)
 
 newtype Wrap (x :: F) (f :: F -> *) = Wrap
-  { wrapped :: f x
+  { wrap :: f x
   }
   deriving (Generic)
 

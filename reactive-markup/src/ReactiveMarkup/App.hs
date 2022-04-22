@@ -12,7 +12,7 @@ import Unsafe.Coerce
 
 data App t (s :: FData) e = App
   { appRender :: s (DynamicF t) -> Markup t Root e,
-    appHandleEvent :: e -> s Update -> IO (s Update),
+    appHandleEvent :: e -> ModelM s IO (),
     appInitialState :: s ID,
     appName :: Text
   }

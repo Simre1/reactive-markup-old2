@@ -5,14 +5,11 @@ import qualified Data.Text.Read as T
 import Data.Void
 import Optics.Core
 import Optics.Generic
-import ReactiveMarkup.App
-import ReactiveMarkup.Markup
-import ReactiveMarkup.Widget
-import ReactiveMarkup.Context
+import ReactiveMarkup
 import ReactiveMarkup.Target.Gtk
 import Data.Functor
-import Data.RHKT
 import GHC.Generics
+import Control.Monad.IO.Class
 
 {-
 
@@ -40,20 +37,20 @@ fahreinheit :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
 fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model
 
 celsius :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
-celsius model = unF $ modelCelsius model
+celsius model = model ^. #modelCelsius % deeper
 
-setFahreinheit :: Int -> Model TempModel -> Model TempModel
-setFahreinheit n model = flip setCelsius model $ ((n - 32) * 5) `quot` 9
+setFahreinheit :: Monad m => Int -> ModelM TempModel m ()
+setFahreinheit n = setCelsius $ ((n - 32) * 5) `quot` 9
 
-setCelsius :: Int -> Model TempModel -> Model TempModel
-setCelsius n model = modelSet #modelCelsius n model
+setCelsius :: Monad m => Int -> ModelM TempModel m ()
+setCelsius n = mPut #modelCelsius n
 
 data AppEvent = SetCelsius Int | SetFahreinheit Int | Search Text
 
-handleEvent :: AppEvent -> Model TempModel -> IO (Model TempModel)
-handleEvent (SetFahreinheit n) m = pure $ setFahreinheit n m
-handleEvent (SetCelsius n) m = pure $ setCelsius n m
-handleEvent (Search t) m = print t $> m
+handleEvent :: AppEvent -> ModelM TempModel IO ()
+handleEvent (SetFahreinheit n) = setFahreinheit n
+handleEvent (SetCelsius n) = setCelsius n
+handleEvent (Search t) = liftIO $ print t
 
 renderGUI :: TempModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
 renderGUI model =
@@ -97,9 +94,9 @@ data SearchEvent = SearchButtonClicked | UpdateSearchText Text
 searchComponent :: Markup Gtk Block AppEvent
 searchComponent = simpleLocalState handleSearchEvent "" searchWithButton
   where
-    handleSearchEvent :: SearchEvent -> LocalUpdate Text AppEvent -> LocalUpdate Text AppEvent
-    handleSearchEvent SearchButtonClicked (LocalUpdate searchText _) = LocalUpdate searchText (Just $ Search searchText)
-    handleSearchEvent (UpdateSearchText t) _ = LocalUpdate t Nothing
+    handleSearchEvent :: SearchEvent -> Text -> SimpleUpdate Text AppEvent
+    handleSearchEvent SearchButtonClicked s = setSimpleUpdateEvent (Search s) noSimpleUpdate
+    handleSearchEvent (UpdateSearchText t) _ = setSimpleUpdate t noSimpleUpdate
     
     searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
     searchWithButton searchText = 

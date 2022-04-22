@@ -20,13 +20,6 @@ import qualified GI.Gdk as Gdk
 import qualified GI.Gtk as Gtk
 import qualified GI.Gtk.Functions as Gtk
 import ReactiveMarkup.App
-  ( App (appHandleEvent, appInitialState, appRender),
-    Model (Model),
-    Update (UpdateKeep, UpdatePropagate, UpdateSet),
-    UpdateF (..),
-    appName,
-    getInternalModel,
-  )
 import ReactiveMarkup.Markup (Dynamic, renderMarkup)
 import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Target.Gtk.Container
@@ -37,7 +30,7 @@ import ReactiveMarkup.Target.Gtk.State
 import ReactiveMarkup.Target.Gtk.Styling
 import ReactiveMarkup.Update
 import qualified SimpleEvents as SE
-
+import Data.Functor.Identity
 
 -- onDifferentName :: s -> (s -> IO ()) -> IO (s -> IO ())
 -- onDifferentName s f = do
@@ -63,9 +56,9 @@ runGtk app = do
               #title Gtk.:= appName app
             ]
         let handle e = do
-              state <- modelToUpdate model
-              updatedModel <- appHandleEvent app e (Model state)
-              updateModel model (getInternalModel updatedModel)
+              modelUpdate <- modelToUpdate model
+              (_, modelUpdate') <- runModelM modelUpdate (appHandleEvent app e)
+              updateModel model (modelUpdate')
             setWidget = Gtk.windowSetChild window . Just
 
 

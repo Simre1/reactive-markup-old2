@@ -1,9 +1,12 @@
 module ReactiveMarkup.Update where
 
-import Data.RHKT
-import Optics.Core
+import Control.Monad.Trans.State (StateT)
+import qualified Control.Monad.Trans.State as S
 import Data.Data
+import Data.RHKT
 import GHC.Generics
+import Optics.Core
+import Control.Monad.IO.Class
 
 data Update (f :: F)
   = UpdateKeep (ApplyF f Update)
@@ -12,29 +15,26 @@ data Update (f :: F)
 
 deriving instance (Show (ApplyF f Update), Show (ApplyF f ID)) => Show (Update f)
 
-newtype Model a = Model {getInternalModel :: a Update}
-
-deriving instance (Show (a Update)) => Show (Model a)
-
 instance Deeper Update where
   type Deep Update a = ApplyF a Update
-  type DeeperC Update a = (ZipTraverseF (Wrap a), WhichF a)
+  type DeeperC Update a = (ZipTraverseF (Wrap a))
   deeper = lens get set
     where
       get :: forall f. ZipTraverseF (Wrap f) => Update f -> ApplyF f Update
       get (UpdateKeep a) = a
       get (UpdatePropagate a) = a
-      get (UpdateSet a) = get $ wrapped $ toUpdate' $ Wrap (ID a :: ID f)
-      
-      set :: forall f. WhichF f => Update f -> ApplyF f Update -> Update f
-      set (UpdateSet a) _ = UpdateSet a
-      set _ a = case whichF @f of
-              IsDirect -> UpdateSet a
-              IsNested -> UpdatePropagate a
+      get (UpdateSet a) = get $ wrap $ toUpdate' $ Wrap (ID a :: ID f)
 
-      setUpdateWrap :: ZipTraverseF x => x Update -> x Update
-      setUpdateWrap = mapF (\a -> UpdateSet $ get a) (\a -> UpdatePropagate $ get a)
-        
+      set :: Update f -> ApplyF f Update -> Update f
+      set (UpdateSet a) _ = UpdateSet a
+      set _ a = UpdatePropagate a
+        -- case whichF @f of
+        -- IsDirect -> UpdateSet a
+        -- IsNested -> UpdatePropagate a
+
+      -- setUpdateWrap :: ZipTraverseF x => x Update -> x Update
+      -- setUpdateWrap = mapF (\a -> UpdateSet $ get a) (\a -> UpdatePropagate $ get a)
+
       toUpdate' :: ZipTraverseF x => x ID -> x Update
       toUpdate' = mapF (\(ID a) -> UpdateKeep a) (\(ID a) -> UpdateKeep (toUpdate' a))
 
@@ -51,40 +51,25 @@ toID = mapF (ID . getD) (ID . getN)
     getD (UpdatePropagate a) = a
     getD (UpdateSet a) = a
 
+-- data TestModel f = TestModel
+--   { m1 :: f (Direct Int),
+--     m2 :: f (Nested (List (Direct Int)))
+--   }
+--   deriving (Generic)
 
-newtype ReadUpdate a = ReadUpdate (Update a)
+newtype ModelM s m a = ModelM {runModelM' :: StateT (s Update) m a} deriving (Functor, Applicative, Monad, MonadIO)
 
-get :: Lens (Update a) (Update a) (ApplyF a ReadUpdate) (ApplyF a Update)
-get = undefined
+runModelM :: s Update -> ModelM s m a -> m (a, s Update)
+runModelM s m = S.runStateT (runModelM' m) s
 
-data TestModel f = TestModel {
-  m1 :: f (Direct Int),
-  m2 :: f (Nested (List (Direct Int)))
-} deriving Generic
+mPut :: (Monad m, Is k An_AffineTraversal) => Optic' k ix (s Update) (Update b) -> ApplyF b ID -> ModelM s m ()
+mPut l n = ModelM $ S.modify $ withAffineTraversal l atraversal .~ UpdateSet n
 
--- test :: TestModel Update -> _
--- test m = m ^. (gfield @"m2") % get
+mModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> ModelM s m ()
+mModify l f = ModelM $ S.modify $ withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrap . toID . Wrap)
 
-test123 :: Lens (TestModel f) (TestModel f) (f (Direct Int)) (f (Direct Int))
-test123 = (gfield @"m1")
+mGet :: (ZipTraverseF (Wrap b), Monad m) => Lens' (s Update) (Update b) -> ModelM s m (ApplyF b ID)
+mGet l = ModelM $ (\m -> runID $ wrap $ toID $ Wrap $ m ^. l) <$> S.get
 
--- test :: ZipTraverseF a => Lens' (UpdateF a) (ApplyF a ID)
--- test = lens get set
---   where
---     get 
-
--- modelSet :: ApplyF x ID -> Update x
--- modelSet n = UpdateSet n
-
--- modelModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> Model a -> Model a
--- modelModify l f (Model m) = Model $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrapped . toID . Wrap)
-
--- modelView :: ZipTraverseF (Wrap b) => Model a -> Lens' (a Update) (Update b) -> ApplyF b ID
--- modelView (Model m) l = let (ID x) = wrapped $ toID $ Wrap $ m ^. l in x
-
--- modelPreview :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Model a -> Optic' k ix (a Update) (Update b) -> Maybe (ApplyF b ID)
--- modelPreview (Model m) l = (\a -> let (ID x) = wrapped $ toID $ Wrap a in x) <$> preview (withAffineTraversal l atraversal) m
-
-        --   modelUpdate <- modelToUpdate model
-        --   let LocalUpdate modelUpdate' outerEvent = update innerEvent (LocalUpdate (Model modelUpdate) Nothing)
-        --   updateModel model (getInternalModel modelUpdate')
+mTryGet :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> ModelM s m (Maybe (ApplyF b ID))
+mTryGet l = ModelM $ fmap (runID . wrap . toID . Wrap) . preview (withAffineTraversal l atraversal) <$> S.get
