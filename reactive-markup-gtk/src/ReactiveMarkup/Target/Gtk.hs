@@ -32,10 +32,11 @@ import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Target.Gtk.Container
 import ReactiveMarkup.Target.Gtk.Inline
 import ReactiveMarkup.Target.Gtk.Interactive
+import ReactiveMarkup.Target.Gtk.ModelF
 import ReactiveMarkup.Target.Gtk.State
 import ReactiveMarkup.Target.Gtk.Styling
+import ReactiveMarkup.Update
 import qualified SimpleEvents as SE
-import ReactiveMarkup.Target.Gtk.ModelF
 
 -- onDifferentName :: s -> (s -> IO ()) -> IO (s -> IO ())
 -- onDifferentName s f = do
@@ -67,8 +68,9 @@ runGtk app = do
             ]
         maybeDisplay <- Gtk.get window #display
         styleProvider <- gtkStyleProvider
-        maybe (pure ()) 
-          (\display ->Gtk.styleContextAddProviderForDisplay display styleProvider (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_USER))
+        maybe
+          (pure ())
+          (\display -> Gtk.styleContextAddProviderForDisplay display styleProvider (fromIntegral Gtk.STYLE_PROVIDER_PRIORITY_USER))
           maybeDisplay
         #show window
 

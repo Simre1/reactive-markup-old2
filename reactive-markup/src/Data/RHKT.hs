@@ -1,10 +1,14 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Data.RHKT where
 
 import Control.Monad (zipWithM)
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.Kind (Constraint)
 import GHC.Generics (Generic)
 import Optics.Core hiding (Fold)
-import Data.Kind (Constraint)
+import Data.Data
+import Unsafe.Coerce
 
 type FData = ((F -> *) -> *)
 
@@ -55,7 +59,7 @@ instance Monoid m => Applicative (Fold m) where
   pure = Fold mempty
   (Fold m1 f) <*> (Fold m2 a) = Fold (m1 <> m2) (f a)
 
-newtype List (a :: F) (f :: F -> *) = List {children :: [f a]} deriving Generic
+newtype List (a :: F) (f :: F -> *) = List {children :: [f a]} deriving (Generic)
 
 deriving instance Show (f a) => Show (List a f)
 
@@ -73,9 +77,10 @@ newtype FunctorF (f :: * -> *) (a :: F) = FunctorF {unF :: f (ApplyF a (FunctorF
 
 deriving instance Show (f (ApplyF a (FunctorF f))) => Show (FunctorF f a)
 
-newtype Wrap (x :: F) (f :: F -> *) = Wrap {
-  wrapped :: f x
-} deriving Generic
+newtype Wrap (x :: F) (f :: F -> *) = Wrap
+  { wrapped :: f x
+  }
+  deriving (Generic)
 
 deriving instance Show (f x) => Show (Wrap x f)
 
@@ -97,7 +102,7 @@ class Upwards (f :: F -> *) where
 
 instance Deeper ID where
   type Deep ID a = ApplyF a ID
-  type DeeperC ID a = () 
+  type DeeperC ID a = ()
   deeper = lens (\(ID a) -> a) (\_ a -> ID a)
 
 instance Upwards ID where
@@ -114,3 +119,17 @@ instance Applicative f => Upwards (FunctorF f) where
   type Up (FunctorF f) a = f (ApplyF a (FunctorF f))
   type UpC (FunctorF f) a = ()
   upwards = lens (\a -> FunctorF a) (\_ (FunctorF a) -> a)
+
+
+data IsF f where
+  IsDirect :: IsF (Direct x)
+  IsNested :: IsF (Nested x)
+
+class WhichF f where
+  whichF :: IsF f
+
+instance WhichF (Direct x) where
+  whichF = IsDirect
+
+instance WhichF (Nested x) where
+  whichF = IsNested

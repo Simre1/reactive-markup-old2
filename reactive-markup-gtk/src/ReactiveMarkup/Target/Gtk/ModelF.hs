@@ -1,7 +1,7 @@
 module ReactiveMarkup.Target.Gtk.ModelF where
 
 import ReactiveMarkup.Markup
-import ReactiveMarkup.App
+import ReactiveMarkup.Update
 import qualified SimpleEvents as SE
 import Data.RHKT
 import ReactiveMarkup.Target.Gtk.Base

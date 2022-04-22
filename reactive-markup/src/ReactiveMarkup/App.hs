@@ -1,72 +1,23 @@
 module ReactiveMarkup.App where
+
+import Data.Coerce
+import Data.RHKT
+import Data.Text (Text)
+import GHC.Generics
+import Optics.Core
 import ReactiveMarkup.Context (Root)
 import ReactiveMarkup.Markup (DynamicF, Markup)
-import Data.Text ( Text )
-import Optics.Core
-import Data.Coerce
+import ReactiveMarkup.Update
 import Unsafe.Coerce
-import Data.RHKT
-import GHC.Generics
 
 data App t (s :: FData) e = App
   { appRender :: s (DynamicF t) -> Markup t Root e,
-    appHandleEvent :: e -> Model s -> IO (Model s),
+    appHandleEvent :: e -> s Update -> IO (s Update),
     appInitialState :: s ID,
     appName :: Text
   }
 
--- 
-
-data Update (f :: F) =
-  UpdateKeep (ApplyF f Update) |
-  UpdatePropagate (ApplyF f Update) |
-  UpdateSet (ApplyF f ID)
-
-deriving instance (Show (ApplyF f Update), Show (ApplyF f ID)) => Show (Update f)
-
-newtype Model a = Model { getInternalModel :: a Update }
-
-deriving instance (Show (a Update)) => Show (Model a)
-
-instance Deeper Update where
-  type Deep Update a = ApplyF a Update
-  type DeeperC Update a = ZipTraverseF (Wrap a)
-  deeper = lens get set
-    where
-      get :: forall f. ZipTraverseF (Wrap f) => Update f -> ApplyF f Update
-      get (UpdateKeep a) = a
-      get (UpdatePropagate a) = a
-      get (UpdateSet a) = get $ wrapped $ toNewUpdate $ Wrap (ID a :: ID f)
-      set (UpdateSet a) _ = UpdateSet a
-      set _ a = UpdatePropagate a
-
-toNewUpdate :: ZipTraverseF x => x ID -> x Update
-toNewUpdate = mapF (\(ID a) -> UpdateKeep a) (\(ID a) -> UpdateKeep (toNewUpdate a))
-
-toID :: ZipTraverseF x => x Update -> x ID
-toID = mapF (ID . getD) (ID . getN)
-  where
-    getN (UpdateKeep a) = toID a
-    getN (UpdatePropagate a) = toID a
-    getN (UpdateSet a) = a
-    getD (UpdateKeep a) = a
-    getD (UpdatePropagate a) = a
-    getD (UpdateSet a) = a
-
-modelSet :: (Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> ApplyF b ID -> Model a -> Model a
-modelSet l n (Model m) = Model $ m & withAffineTraversal l atraversal .~ UpdateSet n
-
-modelModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Optic' k ix (a Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> Model a -> Model a
-modelModify l f (Model m) = Model $ m & withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrapped . toID . Wrap)
-
-modelView :: ZipTraverseF (Wrap b) => Model a -> Lens' (a Update) (Update b) -> ApplyF b ID
-modelView (Model m) l = let (ID x) = wrapped $ toID $ Wrap $ m ^. l in x
-
-modelPreview :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal) => Model a -> Optic' k ix (a Update) (Update b) -> Maybe (ApplyF b ID)
-modelPreview (Model m) l = (\a -> let (ID x) = wrapped $ toID $ Wrap a in x) <$> preview (withAffineTraversal l atraversal) m
-
-
-data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f ID -> r)
+--
 
 -- nested :: UpdateF r f -> ApplyF f (UpdateF r)
 -- nested (UpdateF a _) = a
@@ -89,7 +40,7 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f ID -> r)
 
 -- test :: Change (Model NewUpdate) -> Change (Model NewUpdate)
 -- test = modify (t %% deeper %% gfield @"simple1") 3
---   where 
+--   where
 --     t = gfield @"simple1"
 
 -- data Model f = Model
@@ -104,8 +55,6 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f ID -> r)
 -- instance ZipTraverseF Model where
 
 -- instance ZipTraverseF Simple where
-
-
 
 -- iModel :: Model ID
 -- iModel = Model (coerce @Int 3) (coerce @[Int] [1,2,3])
@@ -154,7 +103,6 @@ data UpdateF r (f :: F) = UpdateF (ApplyF f (UpdateF r)) (ApplyF f ID -> r)
 -- data ShowF (m :: (* -> *) -> *) (f :: * -> *) = forall a. Show (f a) => ShowF (m f)
 
 -- deriving instance Show (ShowF f a)
-
 
 -- data Test (a :: Hyper -> *) = Test (a ID)
 

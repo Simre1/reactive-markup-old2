@@ -15,7 +15,7 @@ import ReactiveMarkup.Target.Gtk.Base
 import Data.IORef
 import ReactiveMarkup.Target.Gtk.ModelF
 import Data.Coerce
-import ReactiveMarkup.App
+import ReactiveMarkup.Update
 
 
 instance MakeGtkRender (DynamicMarkup s Gtk c) c e => Render (DynamicMarkup s Gtk c) Gtk c where

@@ -86,9 +86,9 @@ renderTodo nr todo =
 
 data AppEvent = SetText Int Text | FlipChecked Int | AddTodo | DeleteTodo Int | PrintTodos
 
-handleEvent :: AppEvent -> Model TodoModel -> IO (Model TodoModel)
+handleEvent :: AppEvent -> TodoModel Update -> IO (TodoModel Update)
 handleEvent appEvent model = case appEvent of
-  SetText nr txt -> pure $ modelSet (todo nr % deeper % #todoText) txt model
+  SetText nr txt -> pure $ model todo nr % deeper % #todoText model
   FlipChecked nr -> pure $ modelModify (todo nr % deeper % #todoDone) not model
   DeleteTodo nr -> pure $ modelModify #todos (#children %~ (\c -> take nr c <> drop (nr + 1) c)) model
   AddTodo ->
