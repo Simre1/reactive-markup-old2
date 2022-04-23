@@ -22,8 +22,8 @@ localState f s m = markup $ LocalState f s m
 
 data SimpleUpdate s e = SimpleUpdate (Maybe s) (Maybe e)
 
-noSimpleUpdate :: SimpleUpdate s e
-noSimpleUpdate = SimpleUpdate Nothing Nothing
+defSimpleUpdate :: SimpleUpdate s e
+defSimpleUpdate = SimpleUpdate Nothing Nothing
 
 setSimpleUpdate :: s -> SimpleUpdate s e -> SimpleUpdate s e
 setSimpleUpdate s (SimpleUpdate _ e) = SimpleUpdate (Just s) e

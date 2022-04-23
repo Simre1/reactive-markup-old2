@@ -117,17 +117,18 @@ You cannot directly create `Dynamic` values and you cannot directly interact wit
 For example `simpleLocalState`:
 
 ```haskell
-searchComponent :: Markup Gtk Block Void
-searchComponent = simpleLocalState handleButtonClick initialState buttonWithNumber
+countingButton :: Markup Gtk Block Void
+countingButton = simpleLocalState handleButtonClick initialState buttonWithNumber
   where
     initialState :: Int
     initialState = 0
 
-    handleButtonClick :: () -> LocalUpdate Int Void -> LocalUpdate Int Void
-    handleButtonClick () (LocalUpdate state _) = LocalUpdate (state + 1) Nothing
+    handleButtonClick :: () -> Int -> SimpleUpdate Int Void
+    handleButtonClick () state = setSimpleUpdate (state + 1) defSimpleUpdate
     
     buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
-    buttonWithNumber int = dynamicMarkup int $ \i -> button (show i) (#click ?~ ())
+    buttonWithNumber int = dynamicMarkup int $ \i -> button (string $ show i) (#click ?~ ())
 ```
 
-`simpleLocalState` allows you to have some local state for a component and update it based on events happening within that component.
+`simpleLocalState` allows you to have some local state for a component and update it based on events happening within that component. In this case, the local state is an int which stores how many times the button has been clicked. Whenever the button has been clicked `handleButtonClick` is used to increase the state by 1. `buttonWithNumber` defines how to create UI components based on the local state.
+

@@ -60,7 +60,8 @@ renderGUI model =
         numberField (celsius model),
       "Fahreinheit",
       SetFahreinheit <$> numberField (fahreinheit model),
-      searchComponent
+      searchComponent,
+      absurd <$> countingButton
     ]
 
 app :: App Gtk TempModel AppEvent
@@ -95,8 +96,8 @@ searchComponent :: Markup Gtk Block AppEvent
 searchComponent = simpleLocalState handleSearchEvent "" searchWithButton
   where
     handleSearchEvent :: SearchEvent -> Text -> SimpleUpdate Text AppEvent
-    handleSearchEvent SearchButtonClicked s = setSimpleUpdateEvent (Search s) noSimpleUpdate
-    handleSearchEvent (UpdateSearchText t) _ = setSimpleUpdate t noSimpleUpdate
+    handleSearchEvent SearchButtonClicked s = setSimpleUpdateEvent (Search s) defSimpleUpdate
+    handleSearchEvent (UpdateSearchText t) _ = setSimpleUpdate t defSimpleUpdate
     
     searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
     searchWithButton searchText = 
@@ -105,3 +106,14 @@ searchComponent = simpleLocalState handleSearchEvent "" searchWithButton
           button "Search" (#click ?~ SearchButtonClicked)
         ]
 
+countingButton :: Markup Gtk Block Void
+countingButton = simpleLocalState handleButtonClick initialState buttonWithNumber
+  where
+    initialState :: Int
+    initialState = 0
+
+    handleButtonClick :: () -> Int -> SimpleUpdate Int Void
+    handleButtonClick () state = setSimpleUpdate (state + 1) defSimpleUpdate
+    
+    buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
+    buttonWithNumber int = dynamicMarkup int $ \i -> button (string $ show i) (#click ?~ ())
