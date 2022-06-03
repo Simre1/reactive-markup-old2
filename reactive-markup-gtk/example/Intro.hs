@@ -203,7 +203,8 @@ bold' = bold
 
 -- Only inline markup can be used in conjunction with bold!
 
--- gui = bold (row [])
+test :: Markup Gtk Block Void
+test = bold (row [])
 -- Type error. Block markup cannot be made bold!
 
 -- gui = bold (text "Bold text")

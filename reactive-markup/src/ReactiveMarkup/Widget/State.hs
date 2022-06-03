@@ -31,10 +31,28 @@ setSimpleUpdate s (SimpleUpdate _ e) = SimpleUpdate (Just s) e
 setSimpleUpdateEvent :: e -> SimpleUpdate s e -> SimpleUpdate s e
 setSimpleUpdateEvent e (SimpleUpdate s _) = SimpleUpdate s (Just e)
 
-simpleLocalState ::
+simpleLocalState' ::
   forall s t c innerEvent outerEvent.
   (ZipTraverseF (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
   (innerEvent -> s -> SimpleUpdate s outerEvent) ->
+  s ->
+  (Dynamic t s -> Markup t c innerEvent) ->
+  Markup t c outerEvent
+simpleLocalState' f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+  where
+    f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
+    f' e = do
+      s <- mGet (gfield @"wrap")
+      let SimpleUpdate s' outerEvent = f e s
+      maybe (pure ()) (mPut (gfield @"wrap")) s'
+      pure outerEvent
+    makeMarkup' :: Wrap (Direct s) (DynamicF t) -> Markup t c innerEvent
+    makeMarkup' (Wrap (FunctorF s)) = makeMarkup s
+
+simpleLocalState ::
+  forall s t c innerEvent outerEvent.
+  (ZipTraverseF (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
+  (innerEvent -> s -> Maybe s) ->
   s ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
@@ -43,9 +61,9 @@ simpleLocalState f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarku
     f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
     f' e = do
       s <- mGet (gfield @"wrap")
-      let SimpleUpdate s' outerEvent = f e s
+      let s' = f e s
       maybe (pure ()) (mPut (gfield @"wrap")) s'
-      pure outerEvent
+      pure Nothing
     makeMarkup' :: Wrap (Direct s) (DynamicF t) -> Markup t c innerEvent
     makeMarkup' (Wrap (FunctorF s)) = makeMarkup s
 

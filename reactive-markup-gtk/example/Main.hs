@@ -93,7 +93,7 @@ numberField state =
 data SearchEvent = SearchButtonClicked | UpdateSearchText Text
 
 searchComponent :: Markup Gtk Block AppEvent
-searchComponent = simpleLocalState handleSearchEvent "" searchWithButton
+searchComponent = simpleLocalState' handleSearchEvent "" searchWithButton
   where
     handleSearchEvent :: SearchEvent -> Text -> SimpleUpdate Text AppEvent
     handleSearchEvent SearchButtonClicked s = setSimpleUpdateEvent (Search s) defSimpleUpdate
@@ -112,8 +112,8 @@ countingButton = simpleLocalState handleButtonClick initialState buttonWithNumbe
     initialState :: Int
     initialState = 0
 
-    handleButtonClick :: () -> Int -> SimpleUpdate Int Void
-    handleButtonClick () state = setSimpleUpdate (state + 1) defSimpleUpdate
+    handleButtonClick :: () -> Int -> Maybe Int
+    handleButtonClick () state = Just (state + 1)
     
     buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
     buttonWithNumber int = dynamicMarkup int $ \i -> button (string $ show i) (#click ?~ ())

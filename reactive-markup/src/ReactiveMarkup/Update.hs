@@ -1,12 +1,23 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedRecordUpdate #-}
+{-# LANGUAGE RebindableSyntax #-}
+
 module ReactiveMarkup.Update where
 
+import Control.Monad.IO.Class
 import Control.Monad.Trans.State (StateT)
 import qualified Control.Monad.Trans.State as S
 import Data.Data
 import Data.RHKT
+import Data.String
 import GHC.Generics
+import qualified GHC.Records as R
+import GHC.TypeLits
 import Optics.Core
-import Control.Monad.IO.Class
+import qualified Optics.Internal.Generic
+import qualified Optics.Internal.Generic as Optics.Internal.Generic.TypeLevel
+import Prelude
 
 data Update (f :: F)
   = UpdateKeep (ApplyF f Update)
@@ -28,9 +39,9 @@ instance Deeper Update where
       set :: Update f -> ApplyF f Update -> Update f
       set (UpdateSet a) _ = UpdateSet a
       set _ a = UpdatePropagate a
-        -- case whichF @f of
-        -- IsDirect -> UpdateSet a
-        -- IsNested -> UpdatePropagate a
+      -- case whichF @f of
+      -- IsDirect -> UpdateSet a
+      -- IsNested -> UpdatePropagate a
 
       -- setUpdateWrap :: ZipTraverseF x => x Update -> x Update
       -- setUpdateWrap = mapF (\a -> UpdateSet $ get a) (\a -> UpdatePropagate $ get a)
@@ -73,3 +84,29 @@ mGet l = ModelM $ (\m -> runID $ wrap $ toID $ Wrap $ m ^. l) <$> S.get
 
 mTryGet :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> ModelM s m (Maybe (ApplyF b ID))
 mTryGet l = ModelM $ fmap (runID . wrap . toID . Wrap) . preview (withAffineTraversal l atraversal) <$> S.get
+
+class GetField (label :: Symbol) b a where
+  getField :: b -> a
+
+class SetField (label :: Symbol) b a where
+  setField :: b -> a -> b
+
+data Test f = Test
+  { hello1 :: f (Direct String),
+    hello2 :: f (Nested (List (Direct Int)))
+  }
+  deriving (Generic)
+
+instance {-# OVERLAPPABLE #-} GField label b b a a => GetField label b a where
+  getField b = b ^. gfield @label
+
+instance {-# OVERLAPPABLE #-} GField label b b a a => SetField label b a where
+  setField b a = b & gfield @label .~ a
+
+instance (ZipTraverseF (Wrap a), b ~ (ApplyF a Update)) => GetField "get" (Update a) b where
+  getField b = b ^. deeper
+
+testF :: Test Update -> Test Update
+testF model =
+  let x = model.hello1.get
+   in model
