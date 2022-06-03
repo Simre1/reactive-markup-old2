@@ -15,6 +15,19 @@ import GHC.Generics
 import qualified GHC.Records as R
 import GHC.TypeLits
 import Optics.Core
+    ( Lens',
+      (&),
+      preview,
+      (^.),
+      (%~),
+      (.~),
+      atraversal,
+      withAffineTraversal,
+      lens,
+      GField(..),
+      Optic',
+      Is,
+      An_AffineTraversal )
 import qualified Optics.Internal.Generic
 import qualified Optics.Internal.Generic as Optics.Internal.Generic.TypeLevel
 import Prelude
@@ -85,28 +98,28 @@ mGet l = ModelM $ (\m -> runID $ wrap $ toID $ Wrap $ m ^. l) <$> S.get
 mTryGet :: (TransformFData (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> ModelM s m (Maybe (ApplyF b ID))
 mTryGet l = ModelM $ fmap (runID . wrap . toID . Wrap) . preview (withAffineTraversal l atraversal) <$> S.get
 
-class GetField (label :: Symbol) b a where
-  getField :: b -> a
+-- class GetField (label :: Symbol) b a where
+--   getField :: b -> a
 
-class SetField (label :: Symbol) b a where
-  setField :: b -> a -> b
+-- class SetField (label :: Symbol) b a where
+--   setField :: b -> a -> b
 
-data Test f = Test
-  { hello1 :: f (Direct String),
-    hello2 :: f (Nested (List (Direct Int)))
-  }
-  deriving (Generic)
+-- data Test f = Test
+--   { hello1 :: f (Direct String),
+--     hello2 :: f (Nested (List (Direct Int)))
+--   }
+--   deriving (Generic)
 
-instance {-# OVERLAPPABLE #-} GField label b b a a => GetField label b a where
-  getField b = b ^. gfield @label
+-- instance {-# OVERLAPPABLE #-} GField label b b a a => GetField label b a where
+--   getField b = b ^. gfield @label
 
-instance {-# OVERLAPPABLE #-} GField label b b a a => SetField label b a where
-  setField b a = b & gfield @label .~ a
+-- instance {-# OVERLAPPABLE #-} GField label b b a a => SetField label b a where
+--   setField b a = b & gfield @label .~ a
 
-instance (ZipTraverseF (Wrap a), b ~ (ApplyF a Update)) => GetField "get" (Update a) b where
-  getField b = b ^. deeper
+-- instance (ZipTraverseF (Wrap a), b ~ (ApplyF a Update)) => GetField "get" (Update a) b where
+--   getField b = b ^. deeper
 
-testF :: Test Update -> Test Update
-testF model =
-  let x = model.hello1.get
-   in model
+-- testF :: Test Update -> Test Update
+-- testF model =
+--   let x = model.hello1.get
+--    in model
