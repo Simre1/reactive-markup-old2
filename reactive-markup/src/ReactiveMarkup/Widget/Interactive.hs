@@ -42,3 +42,49 @@ data MapEventIO t c e = forall innerE. MapEventIO (innerE -> IO (Maybe e)) (Mark
 
 mapEventIO :: Render (MapEventIO t c) t c => (innerE -> IO (Maybe e)) -> Markup t c innerE -> Markup t c e
 mapEventIO f m = markup $ MapEventIO f m
+
+data HotKey t c e = HotKey (Key -> [Modifier] -> Maybe e) (Markup t c e)
+
+data Modifier = ModShift | ModControl | ModAlt | ModSuper deriving (Eq, Show)
+
+data Key
+  = KeyQ
+  | KeyW
+  | KeyE
+  | KeyR
+  | KeyT
+  | KeyZ
+  | KeyU
+  | KeyI
+  | KeyO
+  | KeyP
+  | KeyA
+  | KeyS
+  | KeyD
+  | KeyF
+  | KeyJ
+  | KeyK
+  | KeyL
+  | KeyY
+  | KeyX
+  | KeyC
+  | KeyV
+  | KeyB
+  | KeyN
+  | KeyM
+  | KeyEnter
+  | KeySpace
+  | KeyDown
+  | KeyUp
+  | KeyLeft
+  | KeyRight
+  deriving (Eq, Show)
+
+hotKeyFunction :: Render (HotKey t c) t c => (Key -> [Modifier] -> Maybe e) -> Markup t c e -> Markup t c e
+hotKeyFunction f child = markup $ HotKey f child
+
+hotKey :: Render (HotKey t c) t c => Key -> [Modifier] -> e -> Markup t c e -> Markup t c e
+hotKey givenKey givenModifiers event = hotKeyFunction $ \key modifiers ->
+  if (givenKey == key) && all (`elem` modifiers) givenModifiers
+    then Just event
+    else Nothing

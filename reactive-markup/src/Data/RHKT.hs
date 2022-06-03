@@ -14,11 +14,11 @@ type FData = ((F -> *) -> *)
 
 data F = Nested ((F -> *) -> *) | Direct *
 
-class ZipTraverseF (t :: (F -> *) -> *) where
-  zipTraverseF ::
+class TransformFData (t :: (F -> *) -> *) where
+  transformFData ::
     Applicative m =>
     (forall a. f (Direct a) -> g (Direct a) -> m (h (Direct a))) ->
-    (forall a. ZipTraverseF a => f (Nested a) -> g (Nested a) -> m (h (Nested a))) ->
+    (forall a. TransformFData a => f (Nested a) -> g (Nested a) -> m (h (Nested a))) ->
     t f ->
     t g ->
     m (t h)
@@ -31,23 +31,23 @@ type family ApplyOnlyNested (a :: F) (t :: (F -> *)) where
   ApplyOnlyNested (Nested f) t = f t
   ApplyOnlyNested (Direct v) t = ()
 
-traverseF :: (Applicative m, ZipTraverseF x) => (forall a. f (Direct a) -> m (g (Direct a))) -> (forall a. ZipTraverseF a => f (Nested a) -> m (g (Nested a))) -> x f -> m (x g)
-traverseF fD fN x = zipTraverseF (\d1 _ -> fD d1) (\n1 _ -> fN n1) x x
+traverseF :: (Applicative m, TransformFData x) => (forall a. f (Direct a) -> m (g (Direct a))) -> (forall a. TransformFData a => f (Nested a) -> m (g (Nested a))) -> x f -> m (x g)
+traverseF fD fN x = transformFData (\d1 _ -> fD d1) (\n1 _ -> fN n1) x x
 
-mapF :: ZipTraverseF x => (forall a. f (Direct a) -> g (Direct a)) -> (forall a. ZipTraverseF a => f (Nested a) -> g (Nested a)) -> x f -> x g
+mapF :: TransformFData x => (forall a. f (Direct a) -> g (Direct a)) -> (forall a. TransformFData a => f (Nested a) -> g (Nested a)) -> x f -> x g
 mapF fD fN = runIdentity . traverseF (pure . fD) (pure . fN)
 
-zipF :: ZipTraverseF x => (forall a. f (Direct a) -> g (Direct a) -> h (Direct a)) -> (forall a. ZipTraverseF a => f (Nested a) -> g (Nested a) -> h (Nested a)) -> x f -> x g -> x h
-zipF fD fN xf xg = runIdentity $ zipTraverseF (\a b -> pure $ fD a b) (\a b -> pure $ fN a b) xf xg
+zipF :: TransformFData x => (forall a. f (Direct a) -> g (Direct a) -> h (Direct a)) -> (forall a. TransformFData a => f (Nested a) -> g (Nested a) -> h (Nested a)) -> x f -> x g -> x h
+zipF fD fN xf xg = runIdentity $ transformFData (\a b -> pure $ fD a b) (\a b -> pure $ fN a b) xf xg
 
-foldF :: (ZipTraverseF x, Monoid m) => (forall a. f (Direct a) -> m) -> (forall a. ZipTraverseF a => f (Nested a) -> m) -> x f -> m
+foldF :: (TransformFData x, Monoid m) => (forall a. f (Direct a) -> m) -> (forall a. TransformFData a => f (Nested a) -> m) -> x f -> m
 foldF fD fN x =
   let Fold m _ = traverseF (\a -> Fold (fD a) a) (\a -> Fold (fN a) a) x
    in m
 
-foldF2 :: (ZipTraverseF x, Monoid m) => (forall a. f (Direct a) -> g (Direct a) -> m) -> (forall a. ZipTraverseF a => f (Nested a) -> g (Nested a) -> m) -> x f -> x g -> m
+foldF2 :: (TransformFData x, Monoid m) => (forall a. f (Direct a) -> g (Direct a) -> m) -> (forall a. TransformFData a => f (Nested a) -> g (Nested a) -> m) -> x f -> x g -> m
 foldF2 fD fN x y =
-  let Fold m _ = zipTraverseF (\a b -> Fold (fD a b) a) (\a b -> Fold (fN a b) a) x y
+  let Fold m _ = transformFData (\a b -> Fold (fD a b) a) (\a b -> Fold (fN a b) a) x y
    in m
 
 data Fold m a = Fold m a
@@ -63,11 +63,11 @@ newtype List (a :: F) (f :: F -> *) = List {children :: [f a]} deriving (Generic
 
 deriving instance Show (f a) => Show (List a f)
 
-instance ZipTraverseF f => ZipTraverseF (List (Nested f)) where
-  zipTraverseF fD fN (List elems1) (List elems2) = List <$> zipWithM fN elems1 elems2
+instance TransformFData f => TransformFData (List (Nested f)) where
+  transformFData fD fN (List elems1) (List elems2) = List <$> zipWithM fN elems1 elems2
 
-instance ZipTraverseF (List (Direct a)) where
-  zipTraverseF fD fN (List elems1) (List elems2) = List <$> zipWithM fD elems1 elems2
+instance TransformFData (List (Direct a)) where
+  transformFData fD fN (List elems1) (List elems2) = List <$> zipWithM fD elems1 elems2
 
 newtype ID (a :: F) = ID {runID :: ApplyF a ID}
 
@@ -84,16 +84,16 @@ newtype Wrap (x :: F) (f :: F -> *) = Wrap
 
 deriving instance Show (f x) => Show (Wrap x f)
 
-instance ZipTraverseF (Wrap (Direct a)) where
-  zipTraverseF fD _ (Wrap a) (Wrap b) = Wrap <$> fD a b
+instance TransformFData (Wrap (Direct a)) where
+  transformFData fD _ (Wrap a) (Wrap b) = Wrap <$> fD a b
 
-instance ZipTraverseF a => ZipTraverseF (Wrap (Nested a)) where
-  zipTraverseF _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
+instance TransformFData a => TransformFData (Wrap (Nested a)) where
+  transformFData _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
 
 data EmptyF (f :: F -> *) = EmptyF deriving Show
 
-instance ZipTraverseF EmptyF where
-  zipTraverseF fD fN EmptyF EmptyF = pure EmptyF
+instance TransformFData EmptyF where
+  transformFData fD fN EmptyF EmptyF = pure EmptyF
 
 
 class Deeper (f :: F -> *) where
