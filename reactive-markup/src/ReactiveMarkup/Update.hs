@@ -17,10 +17,10 @@ deriving instance (Show (ApplyF f Update), Show (ApplyF f ID)) => Show (Update f
 
 instance Deeper Update where
   type Deep Update a = ApplyF a Update
-  type DeeperC Update a = (ZipTraverseF (Wrap a))
+  type DeeperC Update a = (TransformFData (Wrap a))
   deeper = lens get set
     where
-      get :: forall f. ZipTraverseF (Wrap f) => Update f -> ApplyF f Update
+      get :: forall f. TransformFData (Wrap f) => Update f -> ApplyF f Update
       get (UpdateKeep a) = a
       get (UpdatePropagate a) = a
       get (UpdateSet a) = get $ wrap $ toUpdate' $ Wrap (ID a :: ID f)
@@ -32,16 +32,16 @@ instance Deeper Update where
         -- IsDirect -> UpdateSet a
         -- IsNested -> UpdatePropagate a
 
-      -- setUpdateWrap :: ZipTraverseF x => x Update -> x Update
+      -- setUpdateWrap :: TransformFData x => x Update -> x Update
       -- setUpdateWrap = mapF (\a -> UpdateSet $ get a) (\a -> UpdatePropagate $ get a)
 
-      toUpdate' :: ZipTraverseF x => x ID -> x Update
+      toUpdate' :: TransformFData x => x ID -> x Update
       toUpdate' = mapF (\(ID a) -> UpdateKeep a) (\(ID a) -> UpdateKeep (toUpdate' a))
 
-toUpdate :: ZipTraverseF x => x ID -> x Update
+toUpdate :: TransformFData x => x ID -> x Update
 toUpdate = mapF (\(ID a) -> UpdateSet a) (\(ID a) -> UpdateSet a)
 
-toID :: ZipTraverseF x => x Update -> x ID
+toID :: TransformFData x => x Update -> x ID
 toID = mapF (ID . getD) (ID . getN)
   where
     getN (UpdateKeep a) = toID a
@@ -65,11 +65,11 @@ runModelM s m = S.runStateT (runModelM' m) s
 mPut :: (Monad m, Is k An_AffineTraversal) => Optic' k ix (s Update) (Update b) -> ApplyF b ID -> ModelM s m ()
 mPut l n = ModelM $ S.modify $ withAffineTraversal l atraversal .~ UpdateSet n
 
-mModify :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> ModelM s m ()
+mModify :: (TransformFData (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> (ApplyF b ID -> ApplyF b ID) -> ModelM s m ()
 mModify l f = ModelM $ S.modify $ withAffineTraversal l atraversal %~ (UpdateSet . f . runID . wrap . toID . Wrap)
 
-mGet :: (ZipTraverseF (Wrap b), Monad m) => Lens' (s Update) (Update b) -> ModelM s m (ApplyF b ID)
+mGet :: (TransformFData (Wrap b), Monad m) => Lens' (s Update) (Update b) -> ModelM s m (ApplyF b ID)
 mGet l = ModelM $ (\m -> runID $ wrap $ toID $ Wrap $ m ^. l) <$> S.get
 
-mTryGet :: (ZipTraverseF (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> ModelM s m (Maybe (ApplyF b ID))
+mTryGet :: (TransformFData (Wrap b), Is k An_AffineTraversal, Monad m) => Optic' k ix (s Update) (Update b) -> ModelM s m (Maybe (ApplyF b ID))
 mTryGet l = ModelM $ fmap (runID . wrap . toID . Wrap) . preview (withAffineTraversal l atraversal) <$> S.get

@@ -18,8 +18,9 @@ import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Widget
 
 import qualified SimpleEvents as SE
+import Optics.Core
 
-type instance RenderTarget Gtk (Padded c) = RenderTarget Gtk c
+-- type instance RenderTarget Gtk (Padded c) = RenderTarget Gtk c
 
 appendClasses :: Gtk.Widget -> [Text] -> IO ()
 appendClasses widget newClasses = do
@@ -40,8 +41,8 @@ sizeToClass Small = "small"
 sizeToClass VerySmall = "very-small"
 
 instance
-  ( RenderErrorOnEqual (RenderTarget Gtk (Padded c) e) (MakeGtk e) (Margin Gtk c) Gtk c,
-    RenderTarget Gtk (Padded c) e ~ MakeGtk e
+  ( RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (Margin Gtk c) Gtk c,
+    RenderTarget Gtk c e ~ MakeGtk e
   ) =>
   Render (Margin Gtk c) Gtk c
   where
@@ -49,23 +50,49 @@ instance
     setWidget <- askSetWidget
     let toClass direction v = maybe "" (\s -> "margin-" <> direction <> "-" <> sizeToClass s) v
         classes =
-          [ toClass "top" (marginValuesTop pv),
-            toClass "bottom" (marginValuesBottom pv),
-            toClass "left" (marginValuesLeft pv),
-            toClass "right" (marginValuesRight pv)
+          [ toClass "top" (pv ^. #top),
+            toClass "bottom" (pv ^. #bottom),
+            toClass "left" (pv ^. #left),
+            toClass "right" (pv ^. #right)
           ]
     localSetWidget (\w -> appendClasses w classes >> setWidget w) $ 
       makeGtk (renderMarkup m)
 
 
+instance
+  ( RenderErrorOnEqual (RenderTarget Gtk c e) (MakeGtk e) (Border Gtk c) Gtk c,
+    RenderTarget Gtk c e ~ MakeGtk e
+  ) =>
+  Render (Border Gtk c) Gtk c
+  where
+  render (Border pv m) = MakeGtk $ do
+    setWidget <- askSetWidget
+    let toClass direction v = maybe "" (\s -> "border-" <> direction <> "-" <> sizeToClass s) v
+        classes =
+          [ toClass "top" (pv ^. #top),
+            toClass "bottom" (pv ^. #bottom),
+            toClass "left" (pv ^. #left),
+            toClass "right" (pv ^. #right)
+          ]
+    localSetWidget (\w -> appendClasses w classes >> setWidget w) $ 
+      makeGtk (renderMarkup m)
+
+
+
 css :: ByteString
-css = marginCss
+css = marginCss <> borderCss
   where
     marginCss =
-      let sizesCombinatedWithDirections = (,) <$> sizes <*> directions
+      let sizesCombinatedWithDirections = (,) <$> marginSizes <*> directions
        in flip foldMap sizesCombinatedWithDirections $ \((size, px), direction) ->
             [fmt|.margin-{direction}-{size} {{ margin-{direction}: {px}px; }} \n|]
-    sizes :: [(ByteString, Int)]
-    sizes = [("very-small", 2), ("small", 5), ("medium", 10), ("big", 20), ("very-big", 40)]
+    borderCss =
+      let sizesCombinatedWithDirections = (,) <$> borderSizes <*> directions
+       in flip foldMap sizesCombinatedWithDirections $ \((size, px), direction) ->
+            [fmt|.border-{direction}-{size} {{ border-{direction}: solid {px}px; }} \n|]
+    borderSizes :: [(ByteString, Int)]
+    borderSizes = [("very-small", 1), ("small", 2), ("medium", 4), ("big", 8), ("very-big", 16)]
+    marginSizes :: [(ByteString, Int)]
+    marginSizes = [("very-small", 2), ("small", 5), ("medium", 10), ("big", 20), ("very-big", 40)]
     directions :: [ByteString]
     directions = ["top", "bottom", "left", "right"]

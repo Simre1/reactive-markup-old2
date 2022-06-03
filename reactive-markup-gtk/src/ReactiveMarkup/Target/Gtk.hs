@@ -10,7 +10,7 @@ import Data.RHKT
     F (..),
     FunctorF (FunctorF),
     ID (..),
-    ZipTraverseF,
+    TransformFData,
     foldF2,
     mapF,
     traverseF,
@@ -42,7 +42,7 @@ import Data.Functor.Identity
 --       writeIORef stableNameRef oldStableName
 --       f newS
 
-runGtk :: ZipTraverseF s => App Gtk s e -> IO ()
+runGtk :: TransformFData s => App Gtk s e -> IO ()
 runGtk app = do
   model <- initiateModel (appInitialState app)
 
@@ -84,14 +84,14 @@ runGtk app = do
   void $ #run app Nothing
   runCleanUp
 
--- modelToUpdateF :: ZipTraverseF x => x ModelF -> IO (x (UpdateF Update))
+-- modelToUpdateF :: TransformFData x => x ModelF -> IO (x (UpdateF Update))
 -- modelToUpdateF = traverseF fD fN
 --   where
 --     fD :: ModelF (Direct a) -> IO (UpdateF Update (Direct a))
 --     fD (ModelF d t) = do
 --       v <- unsafeInterleaveIO $ SE.current $ SE.toBehavior d
 --       pure $ UpdateF v (makeUpdate t)
---     fN :: ZipTraverseF f => ModelF (Nested f) -> IO (UpdateF Update (Nested f))
+--     fN :: TransformFData f => ModelF (Nested f) -> IO (UpdateF Update (Nested f))
 --     fN (ModelF d t) = do
 --       v <- unsafeInterleaveIO $ SE.current (SE.toBehavior d) >>= modelToUpdateF
 --       pure $ UpdateF v (makeUpdate t)

@@ -70,6 +70,7 @@ library
       gi-gtk,
       gi-gdk,
       gi-glib,
+      haskell-gi-base,
       reactive-markup,
       gi-pango,
       optics-core,

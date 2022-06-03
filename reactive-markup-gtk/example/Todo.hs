@@ -46,11 +46,11 @@ data Todo f = Todo
 
 deriving instance Show (Todo ID)
 
-instance ZipTraverseF TodoModel where
-  zipTraverseF fD fN (TodoModel todos1) (TodoModel todos2) = TodoModel <$> fN todos1 todos2
+instance TransformFData TodoModel where
+  transformFData fD fN (TodoModel todos1) (TodoModel todos2) = TodoModel <$> fN todos1 todos2
 
-instance ZipTraverseF Todo where
-  zipTraverseF fD fN (Todo t1 d1) (Todo t2 d2) = Todo <$> fD t1 t2 <*> fD d1 d2
+instance TransformFData Todo where
+  transformFData fD fN (Todo t1 d1) (Todo t2 d2) = Todo <$> fD t1 t2 <*> fD d1 d2
 
 initialModel :: TodoModel ID
 initialModel = TodoModel $ coerce @[Todo ID] $ [Todo ("Get tea" ^. upwards) (False ^. upwards)]

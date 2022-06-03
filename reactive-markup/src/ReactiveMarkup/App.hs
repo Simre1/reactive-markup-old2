@@ -52,14 +52,14 @@ data App t (s :: FData) e = App
 --   simple1 :: f (Direct Int)
 -- } deriving Generic
 
--- instance ZipTraverseF Model where
+-- instance TransformFData Model where
 
--- instance ZipTraverseF Simple where
+-- instance TransformFData Simple where
 
 -- iModel :: Model ID
 -- iModel = Model (coerce @Int 3) (coerce @[Int] [1,2,3])
 
--- toUpdate :: ZipTraverseF x => x ID -> x UpdateF
+-- toUpdate :: TransformFData x => x ID -> x UpdateF
 -- toUpdate = mapF (\(ID a) -> UpdateF () (\_ -> pure ())) (\(ID a) -> UpdateF )
 
 -- newtype UpdateEnv a =  UpdateEnv a deriving (Functor, Show)
@@ -140,7 +140,7 @@ data App t (s :: FData) e = App
 
 -- data None a = None
 
--- class ZipTraverseF (x :: (* -> *) -> *) where
+-- class TransformFData (x :: (* -> *) -> *) where
 --  traverseF :: Applicative m =>
 --    (forall a b. (a -> m b) -> f a -> m (g b)) ->
 --    x f -> m (x g)
@@ -151,7 +151,7 @@ data App t (s :: FData) e = App
 -- class ZipMapF (m :: (* -> *) -> *) where
 --   zipMapF :: (forall a b. (a -> b) -> f a -> g a -> h b) -> m f -> m g -> m h
 
--- instance ZipTraverseF Model where
+-- instance TransformFData Model where
 --   -- emptyF = Model None None
 --   traverseF f (Model s1 s2) =
 --     let g1 = f pure s1
@@ -162,7 +162,7 @@ data App t (s :: FData) e = App
 --   -- zipF f (Model s1a s1b) (Model s2a s2b) =
 --   --   Model (f s1a s2a) (f s1b s2b)
 
--- instance ZipTraverseF (ID a) where
+-- instance TransformFData (ID a) where
 --   traverseF f (ID a) = ID <$> f pure a
 
 -- testFoldF2 :: Model Print -> Model Identity -> IO ()
@@ -291,12 +291,12 @@ data App t (s :: FData) e = App
 
 -- newtype Simple a (f :: * -> *) = Simple a deriving Show
 
--- mapF :: ZipTraverseF x => (forall a b. (a -> b) -> f a -> g b) -> x f -> x g
+-- mapF :: TransformFData x => (forall a b. (a -> b) -> f a -> g b) -> x f -> x g
 -- mapF f = runIdentity . traverseF (\f' -> pure . f (runIdentity . f'))
 
 -- newtype Wrap a f = Wrap {unwrap :: f a}
 
--- instance ZipTraverseF (Wrap a) where
+-- instance TransformFData (Wrap a) where
 --   emptyF = Wrap None
 --   traverseF to (Wrap x) = Wrap <$> to pure x
 

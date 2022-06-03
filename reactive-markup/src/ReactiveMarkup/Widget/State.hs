@@ -10,10 +10,10 @@ import ReactiveMarkup.Update
 data LocalUpdate s e = LocalUpdate {localModel :: s, propagatedEvent :: Maybe e}
   deriving (Generic)
 
-data LocalState s t c e = forall innerE. ZipTraverseF s => LocalState (innerE -> ModelM s Identity (Maybe e)) (s ID) (s (DynamicF t) -> Markup t c innerE)
+data LocalState s t c e = forall innerE. TransformFData s => LocalState (innerE -> ModelM s Identity (Maybe e)) (s ID) (s (DynamicF t) -> Markup t c innerE)
 
 localState ::
-  (ZipTraverseF s, Render (LocalState s t c) t c) =>
+  (TransformFData s, Render (LocalState s t c) t c) =>
   (innerEvent -> ModelM s Identity (Maybe outerEvent)) ->
   s ID ->
   (s (DynamicF t) -> Markup t c innerEvent) ->
@@ -33,7 +33,7 @@ setSimpleUpdateEvent e (SimpleUpdate s _) = SimpleUpdate s (Just e)
 
 simpleLocalState ::
   forall s t c innerEvent outerEvent.
-  (ZipTraverseF (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
+  (TransformFData (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
   (innerEvent -> s -> SimpleUpdate s outerEvent) ->
   s ->
   (Dynamic t s -> Markup t c innerEvent) ->
