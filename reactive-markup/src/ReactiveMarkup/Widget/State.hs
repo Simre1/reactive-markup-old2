@@ -51,7 +51,7 @@ simpleLocalState' f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMark
 
 simpleLocalState ::
   forall s t c innerEvent outerEvent.
-  (ZipTraverseF (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
+  (TransformFData (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
   (innerEvent -> s -> Maybe s) ->
   s ->
   (Dynamic t s -> Markup t c innerEvent) ->
