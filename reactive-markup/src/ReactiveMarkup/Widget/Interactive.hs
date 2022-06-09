@@ -10,7 +10,7 @@ import ReactiveMarkup.Markup
     Optional,
     Render,
     markup,
-    oMarkup,
+    oMarkup, OptionalClass (makeOptional)
   )
 
 newtype ButtonOptions e = ButtonOptions
@@ -18,13 +18,13 @@ newtype ButtonOptions e = ButtonOptions
   }
   deriving (Generic)
 
-data Button t c e = Button (Markup t c Void) (ButtonOptions e)
+data Button t c e = Button (ButtonOptions e) (Markup t c Void)
 
-button ::
-  (Render (Button t Inline) t c) =>
-  Markup t Inline Void ->
-  Optional (ButtonOptions e) (Markup t c e)
-button i = oMarkup (Button i) (ButtonOptions Nothing)
+button :: (Render (Button t Inline) t c, Optional (ButtonOptions e) (Markup t Inline Void -> Markup t c e) r) => r
+button = oMarkup Button (ButtonOptions Nothing)
+
+test :: forall t c e. Render (Button t Inline) t c => Markup t c e
+test = button id (undefined :: Markup t Inline Void)
 
 data TextFieldOptions t e = TextFieldOptions
   { value :: Dynamic t Text,
@@ -33,10 +33,10 @@ data TextFieldOptions t e = TextFieldOptions
   }
   deriving (Generic)
 
-newtype TextField t e = TextField (TextFieldOptions t e)
+-- newtype TextField t e = TextField (TextFieldOptions t e)
 
-textField :: forall t c e. (Render (TextField t) t c, Applicative (Dynamic t)) => Optional (TextFieldOptions t e) (Markup t c e)
-textField = oMarkup TextField $ TextFieldOptions @t (pure "") Nothing Nothing
+-- textField :: forall t c e. (Render (TextField t) t c, Applicative (Dynamic t)) => Optional (TextFieldOptions t e) (Markup t c e)
+-- textField = oMarkup TextField $ TextFieldOptions @t (pure "") Nothing Nothing
 
 data MapEventIO t c e = forall innerE. MapEventIO (innerE -> IO (Maybe e)) (Markup t c innerE)
 

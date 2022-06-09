@@ -46,7 +46,8 @@ common common
     FunctionalDependencies
     PolyKinds
     ImpredicativeTypes
-  default-language: Haskell2010
+    ConstraintKinds
+  default-language: GHC2021
 
 library
     import: common

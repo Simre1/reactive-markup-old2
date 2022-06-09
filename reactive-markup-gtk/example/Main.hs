@@ -31,7 +31,7 @@ newtype TempModel f = TempModel {
   } deriving Generic
 
 instance TransformFData TempModel where
-  TransformFData fD fN (TempModel a) (TempModel b) = TempModel <$> fD a b
+  transformFData fD fN (TempModel a) (TempModel b) = TempModel <$> fD a b
 
 fahreinheit :: TempModel (DynamicF Gtk) -> Dynamic Gtk Int
 fahreinheit model = (\n -> ((n * 9) `quot` 5) + 32) <$> celsius model

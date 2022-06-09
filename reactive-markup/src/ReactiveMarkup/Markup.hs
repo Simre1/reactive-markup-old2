@@ -16,9 +16,9 @@ class Render widget target context where
   render :: widget e -> RenderTarget target context e
 
 type family RenderError widget target context where
-   RenderError widget target context = TypeError 
-      (Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot occur in context \"" :<>: 
-      ShowType context :<>: Text "\" when rendering to target \"" :<>: ShowType target :<>: Text "\"." :$$:
+   RenderError widget target context =  TypeError 
+      (Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot be rendered to \"Markup " :<>: 
+      ShowType target :<>:  Text " " :<>: ShowType context :<>: Text "\"" :$$:
       Text "Most likely you need to use \"" :<>: ShowType widget :<>: Text "\" in another context!"
       ) 
 
@@ -83,18 +83,18 @@ lift = markup . Lift
 -- oMarkup :: (o -> w e) -> Markup t c e
 -- oMarkup :: (o -> w e) -> (o -> o) -> Markup t c e
 
-type Optional a b = forall r. (OptionalClass a b r, Out r ~ b, Result a b r ~ r) => r
+type Optional a b r = (OptionalClass a b r, Out a r ~ b, Result a b r ~ r)
 
-oMarkup :: forall w t c o e. (Render w t c) => (o -> w e) -> o -> Optional o (Markup t c e)
-oMarkup f o = makeOptional (markup . f :: o -> Markup t c e) o
+oMarkup :: forall w t c o e r a. (Render w t c, Optional o (a -> Markup t c e) r) => (o -> a -> w e) -> o -> r
+oMarkup f = makeOptional (fmap markup . f :: o -> a -> Markup t c e)
 
-type family Out r where
-  Out (a -> b) = b
-  Out b = b
+type family Out a r where
+  Out a ((a -> a) -> b) = b
+  Out _ b = b
 
 type family Result a b r where
   Result a b b = b
-  Result a b x = (a -> a) -> b
+  Result a b _ = ((a -> a) -> b)
 
 class OptionalClass a b r where
   makeOptional :: (a -> b) -> a -> r
