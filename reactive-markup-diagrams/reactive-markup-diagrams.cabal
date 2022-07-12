@@ -1,0 +1,59 @@
+cabal-version:      2.4
+name:               reactive-markup-diagrams
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+-- license:
+author:             Simre1
+maintainer:         simre4775@gmail.com
+
+-- A copyright notice.
+-- copyright:
+-- category:
+extra-source-files: CHANGELOG.md
+
+common common
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    GADTs
+    MultiParamTypeClasses
+    DerivingVia
+    GeneralizedNewtypeDeriving
+    FlexibleInstances
+    FlexibleContexts
+    TypeApplications
+    TypeOperators
+    RankNTypes
+    ExistentialQuantification
+    ScopedTypeVariables
+    InstanceSigs
+    StandaloneKindSignatures
+    UndecidableInstances
+    OverloadedStrings
+    DuplicateRecordFields
+    DeriveGeneric
+    StandaloneDeriving
+    FunctionalDependencies
+    PolyKinds
+    ImpredicativeTypes
+    ConstraintKinds
+  default-language: GHC2021
+
+library
+    import: common
+    exposed-modules:  
+      ReactiveMarkup.Widget.Diagram
+    build-depends:    base, text, containers, vector, data-default, optics-core, optics-th, transformers,
+                      diagrams-core, reactive-markup
+    hs-source-dirs:   src
+

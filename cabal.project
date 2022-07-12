@@ -1,6 +1,8 @@
 packages: 
     reactive-markup/*.cabal, 
+    reactive-markup-diagrams/*.cabal, 
     reactive-markup-gtk/*.cabal 
+    reactive-markup-gtk/diagrams-gi-gtk/*.cabal 
 --    reactive-markup-compose,
 --    reactive-markup-compose/jni
 

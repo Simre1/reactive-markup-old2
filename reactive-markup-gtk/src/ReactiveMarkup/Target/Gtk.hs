@@ -28,6 +28,7 @@ import ReactiveMarkup.Target.Gtk.Interactive
 import ReactiveMarkup.Target.Gtk.ModelF
 import ReactiveMarkup.Target.Gtk.State
 import ReactiveMarkup.Target.Gtk.Styling
+import ReactiveMarkup.Target.Gtk.Diagram
 import ReactiveMarkup.Update
 import qualified SimpleEvents as SE
 import Data.Functor.Identity
