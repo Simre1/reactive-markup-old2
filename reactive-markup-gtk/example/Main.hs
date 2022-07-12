@@ -74,9 +74,9 @@ app =
     }
 
 numberField :: Dynamic Gtk Int -> Markup Gtk Block Int
-numberField state =
+numberField state = 
   let text :: Dynamic Gtk Text = pack . show <$> state
-   in filterEvents parseNumber $ textField $ (#value .~ text) . (#change ?~ id)
+   in filterEvents parseNumber $ textField [(#change ?~ id)] (text)
   where
     parseNumber :: Text -> Maybe Int
     parseNumber t =
@@ -102,8 +102,8 @@ searchComponent = simpleLocalState' handleSearchEvent "" searchWithButton
     searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
     searchWithButton searchText = 
       row
-        [ textField $ (#value .~ searchText) . (#change ?~ UpdateSearchText),
-          button "Search" (#click ?~ SearchButtonClicked)
+        [ textField [(#change ?~ UpdateSearchText)] (searchText),
+          button [#click ?~ SearchButtonClicked] "Search"
         ]
 
 countingButton :: Markup Gtk Block Void
@@ -116,4 +116,4 @@ countingButton = simpleLocalState handleButtonClick initialState buttonWithNumbe
     handleButtonClick () state = Just (state + 1)
     
     buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
-    buttonWithNumber int = dynamicMarkup int $ \i -> button (string $ show i) (#click ?~ ())
+    buttonWithNumber int = dynamicMarkup int $ \i -> button [(#click ?~ ())] (string $ show i)

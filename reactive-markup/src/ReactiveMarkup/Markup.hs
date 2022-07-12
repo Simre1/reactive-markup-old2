@@ -1,35 +1,36 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Eta reduce" #-}
-
-
-
 
 module ReactiveMarkup.Markup where
 
+import Data.Kind (Constraint)
 import Data.RHKT (FunctorF)
 import Data.Void (Void)
-import GHC.TypeLits (TypeError, ErrorMessage(..))
-import Data.Kind (Constraint)
+import GHC.TypeLits (ErrorMessage (..), TypeError)
+import Data.Foldable
 
 class Render widget target context where
   render :: widget e -> RenderTarget target context e
 
 type family RenderError widget target context where
-   RenderError widget target context =  TypeError 
-      (Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot be rendered to \"Markup " :<>: 
-      ShowType target :<>:  Text " " :<>: ShowType context :<>: Text "\"" :$$:
-      Text "Most likely you need to use \"" :<>: ShowType widget :<>: Text "\" in another context!"
-      ) 
+  RenderError widget target context =
+    TypeError
+      ( Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot be rendered to \"Markup "
+          :<>: ShowType target
+          :<>: Text " "
+          :<>: ShowType context
+          :<>: Text "\""
+          :$$: Text "Most likely you need to use \""
+          :<>: ShowType widget
+          :<>: Text "\" in another context!"
+      )
 
-type family RenderErrorOnEqual a b widget target context:: Constraint where
+type family RenderErrorOnEqual a b widget target context :: Constraint where
   RenderErrorOnEqual a a _ _ _ = ()
   RenderErrorOnEqual _ _ widget target context = RenderError widget target context
 
-
-instance {-# OVERLAPPABLE #-} RenderError widget target context => 
-  Render widget target context where
-  render = error "no render"
+-- instance {-# OVERLAPPABLE #-} RenderError widget target context =>
+--   Render widget target context where
+--   render = error "no render"
 
 type family RenderTarget target context :: * -> *
 
@@ -83,24 +84,33 @@ lift = markup . Lift
 -- oMarkup :: (o -> w e) -> Markup t c e
 -- oMarkup :: (o -> w e) -> (o -> o) -> Markup t c e
 
-type Optional a b r = (OptionalClass a b r, Out a r ~ b, Result a b r ~ r)
+withDefaultParameter :: (d -> x) -> d -> [d -> d] -> x
+withDefaultParameter f d c = f $ foldl' (.) id c d
 
-oMarkup :: forall w t c o e r a. (Render w t c, Optional o (a -> Markup t c e) r) => (o -> a -> w e) -> o -> r
-oMarkup f = makeOptional (fmap markup . f :: o -> a -> Markup t c e)
+-- type Optional a b r = (OptionalClass a b r, CalcR a b r ~ r, CalcB a r ~ b)
 
-type family Out a r where
-  Out a ((a -> a) -> b) = b
-  Out _ b = b
+-- oMarkup :: forall w t c o e r. (Render w t c, Optional o (Markup t c e) r) => (o -> w e) -> o -> r
+-- oMarkup f o = makeOptional (markup . f :: o -> Markup t c e) o
 
-type family Result a b r where
-  Result a b b = b
-  Result a b _ = ((a -> a) -> b)
+-- oMarkup1 :: forall w t c o e r x. (Render w t c, Optional o (x -> Markup t c e) r) => (o -> x -> w e) -> o -> CalcR o (x -> Markup t c e) r
+-- oMarkup1 f o = makeOptional (fmap markup . f :: o -> x -> Markup t c e) o
 
-class OptionalClass a b r where
-  makeOptional :: (a -> b) -> a -> r
+-- oMarkup2 :: forall w t c o e r x y. (Render w t c, Optional o (x -> y -> Markup t c e) r) => (o -> x -> y -> w e) -> o -> r
+-- oMarkup2 f o = makeOptional (fmap (fmap markup) . f :: o -> x -> y -> Markup t c e) o
 
-instance OptionalClass a r ((a -> a) -> r) where
-  makeOptional m a = \f -> m (f a)
+-- type family CalcB a r where
+--   CalcB a ([a -> a] -> b) = b
+--   CalcB _ b = b
 
-instance OptionalClass a b b where
-  makeOptional m a = m a
+-- type family CalcR a b r where
+--   CalcR a b b = b
+--   CalcR a b _ = [a -> a] -> b
+
+-- class OptionalClass a b r where
+--   makeOptional :: (a -> b) -> a -> r
+
+-- instance OptionalClass a b ([a -> a] -> b) where
+--   makeOptional m a = \f -> m (foldl (.) id f $ a)
+
+-- instance OptionalClass a b b where
+--   makeOptional m a = m a

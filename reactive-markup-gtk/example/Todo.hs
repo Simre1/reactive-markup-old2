@@ -63,8 +63,8 @@ renderView model =
       renderedTodos = dynamicMarkup todos' $ \ts -> column $ uncurry renderTodo <$> zip [0 ..] ts
    in column
         [ renderedTodos,
-          margin Small $ button "Add Todo" (#click ?~ AddTodo),
-          margin Small $ button "Print Todos" (#click ?~ PrintTodos)
+          margin Small $ button [#click ?~ AddTodo] "Add Todo",
+          margin Small $ button [#click ?~ PrintTodos] "Print Todos"
         ]
 
 renderTodo :: Int -> DynamicF Gtk (Nested Todo) -> Markup Gtk Block AppEvent
@@ -74,9 +74,9 @@ renderTodo nr todo =
         dText = view deeper todo >>= view (#todoText % deeper)
      in row $
           margin VerySmall
-            <$> [ dynamicMarkup done $ \d -> button (if d then bold "[X]" else bold "[ ]") (#click ?~ FlipChecked nr),
-                  textField $ (#value .~ dText) . (#change ?~ SetText nr),
-                  button "Delete" (#click ?~ DeleteTodo nr)
+            <$> [ dynamicMarkup done $ \d -> button [(#click ?~ FlipChecked nr)] (if d then bold "[X]" else bold "[ ]") ,
+                  textField [(#change ?~ SetText nr)] dText,
+                  button [(#click ?~ DeleteTodo nr)] "Delete" 
                 ]
 
 

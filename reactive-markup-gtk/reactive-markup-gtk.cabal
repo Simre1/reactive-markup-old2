@@ -59,7 +59,8 @@ library
       ReactiveMarkup.Target.Gtk.Interactive,
       ReactiveMarkup.Target.Gtk.State,
       ReactiveMarkup.Target.Gtk.Styling,
-      ReactiveMarkup.Target.Gtk.ModelF
+      ReactiveMarkup.Target.Gtk.ModelF,
+      ReactiveMarkup.Target.Gtk.Diagram
 
 
     build-depends:    
@@ -67,11 +68,14 @@ library
       text,
       containers,
       vector,
-      gi-gtk,
+      gi-gtk ^>= 4,
       gi-gdk,
       gi-glib,
       haskell-gi-base,
       reactive-markup,
+      reactive-markup-diagrams,
+      diagrams-gi-gtk,
+      diagrams-cairo,
       gi-pango,
       optics-core,
       bytestring,
@@ -103,3 +107,9 @@ executable Todo
   main-is: Todo.hs
   hs-source-dirs: example
   build-depends: base , text, containers, vector, reactive-markup, reactive-markup-gtk, optics-core
+
+executable Drawing
+  import: common
+  main-is: Drawing.hs
+  hs-source-dirs: example
+  build-depends: base , text, containers, vector, reactive-markup, reactive-markup-diagrams, reactive-markup-gtk, optics-core, diagrams-lib, diagrams-cairo
