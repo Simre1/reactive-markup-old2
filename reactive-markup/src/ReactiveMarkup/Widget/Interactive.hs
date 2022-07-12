@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 module ReactiveMarkup.Widget.Interactive where
 
 import Data.Text (Text)
@@ -7,10 +9,9 @@ import ReactiveMarkup.Context (Inline)
 import ReactiveMarkup.Markup
   ( Dynamic,
     Markup,
-    Optional,
     Render,
     markup,
-    oMarkup, OptionalClass (makeOptional)
+    withDefaultParameter,
   )
 
 newtype ButtonOptions e = ButtonOptions
@@ -20,23 +21,19 @@ newtype ButtonOptions e = ButtonOptions
 
 data Button t c e = Button (ButtonOptions e) (Markup t c Void)
 
-button :: (Render (Button t Inline) t c, Optional (ButtonOptions e) (Markup t Inline Void -> Markup t c e) r) => r
-button = oMarkup Button (ButtonOptions Nothing)
-
-test :: forall t c e. Render (Button t Inline) t c => Markup t c e
-test = button id (undefined :: Markup t Inline Void)
+button :: forall t c e r. (Render (Button t Inline) t c) => [ButtonOptions e -> ButtonOptions e] -> Markup t Inline Void -> Markup t c e
+button = withDefaultParameter (fmap markup . Button) (ButtonOptions Nothing)
 
 data TextFieldOptions t e = TextFieldOptions
-  { value :: Dynamic t Text,
-    activate :: Maybe (Text -> e),
+  { activate :: Maybe (Text -> e),
     change :: Maybe (Text -> e)
   }
   deriving (Generic)
 
--- newtype TextField t e = TextField (TextFieldOptions t e)
+data TextField t e = TextField (TextFieldOptions t e) (Dynamic t Text) 
 
--- textField :: forall t c e. (Render (TextField t) t c, Applicative (Dynamic t)) => Optional (TextFieldOptions t e) (Markup t c e)
--- textField = oMarkup TextField $ TextFieldOptions @t (pure "") Nothing Nothing
+textField :: forall t c e. (Render (TextField t) t c) => [TextFieldOptions t e -> TextFieldOptions t e] -> Dynamic t Text -> Markup t c e
+textField = withDefaultParameter (fmap markup . TextField) $ TextFieldOptions Nothing Nothing
 
 data MapEventIO t c e = forall innerE. MapEventIO (innerE -> IO (Maybe e)) (Markup t c innerE)
 

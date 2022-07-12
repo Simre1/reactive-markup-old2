@@ -23,7 +23,7 @@ import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
 
 instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Inline) Gtk c where
-  render (Button t (ButtonOptions clickF)) = MakeGtk $ do
+  render (Button (ButtonOptions clickF) t) = MakeGtk $ do
     button <- Gtk.buttonNew
     handleEvent <- askHandleEvent
     localSetWidget (\w -> Gtk.buttonSetChild button (Just w)) $
@@ -33,7 +33,7 @@ instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Inline) Gtk c wh
     Gtk.toWidget button >>= setWidgetNow
 
 instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
-  render (TextField (TextFieldOptions value handleActivate handleChange)) = MakeGtk $ do
+  render (TextField (TextFieldOptions handleActivate handleChange) value) = MakeGtk $ do
     handleEvent <- askHandleEvent
     entry <- Gtk.entryNew
     entryBuffer <- Gtk.entryGetBuffer entry

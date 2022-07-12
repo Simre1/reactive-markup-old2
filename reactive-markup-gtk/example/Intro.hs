@@ -138,7 +138,7 @@ gui :: Markup Gtk Root Void
 -- Let's say that a button emits an event of type ButtonClick,
 
 myButton :: Markup Gtk Block () -- ButtonClick is the event type!
-myButton = button "Click me"
+myButton = button [] "Click me"
 
 -- We can now add components that can react to events.
 -- For example:
@@ -230,5 +230,5 @@ gui =
   column
     [ text "You can easily combine inline texts",
       lift $ combinedInline <> combinedInline,
-      dropEvents $ button "Click me"
+      dropEvents $ button [] "Click me"
     ]
