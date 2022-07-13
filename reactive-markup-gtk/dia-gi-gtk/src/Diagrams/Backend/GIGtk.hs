@@ -1,5 +1,9 @@
 {-# LANGUAGE CPP #-}
+
 -----------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------
+
 -- |
 -- Module      :  Diagrams.Backend.Gtk
 -- Copyright   :  (c) 2019 Torsten Kemps-Benedix
@@ -145,25 +149,23 @@
 --     Gtk.widgetShowAll win
 --     Gtk.main
 -- @
------------------------------------------------------------------------------
 module Diagrams.Backend.GIGtk
-       ( defaultRender
-       , toGtkCoords
-       , renderToGtk
-       ) where
+  ( defaultRender,
+    toGtkCoords,
+    renderToGtk,
+  )
+where
 
-import           Control.Monad.Trans.Reader (runReaderT)
-import           Diagrams.Prelude hiding (render, height, width)
-import           Diagrams.Backend.Cairo.Internal
-import           Foreign.Ptr (castPtr)
-import           GHC.Int
-import qualified GI.Cairo (Context(..))
-import           GI.Gtk
-import qualified Graphics.Rendering.Cairo as Cairo
-import qualified Graphics.Rendering.Cairo.Internal as Cairo (Render(runRender))
-import qualified Graphics.Rendering.Cairo.Types as Cairo (Cairo(Cairo))
-import Debug.Trace
-import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader (runReaderT)
+import Diagrams.Backend.Cairo.Internal
+import Diagrams.Prelude hiding (height, render, width)
+import Foreign.Ptr (castPtr)
+import GHC.Int
+import GI.Cairo qualified (Context (..))
+import GI.Gtk
+import Graphics.Rendering.Cairo qualified as Cairo
+import Graphics.Rendering.Cairo.Internal qualified as Cairo (Render (runRender))
+import Graphics.Rendering.Cairo.Types qualified as Cairo (Cairo (Cairo))
 
 -- | This function bridges gi-cairo with the hand-written cairo
 -- package. It takes a `GI.Cairo.Context` (as it appears in gi-cairo),
@@ -171,7 +173,7 @@ import Control.Monad.IO.Class
 -- `Render` action into the given context.
 renderWithContext :: GI.Cairo.Context -> Cairo.Render () -> IO ()
 renderWithContext ct r = withManagedPtr ct $ \p ->
-                         runReaderT (Cairo.runRender r) (Cairo.Cairo (castPtr p))
+  runReaderT (Cairo.runRender r) (Cairo.Cairo (castPtr p))
 
 -- | Convert a Diagram to the backend coordinates.
 --
@@ -187,28 +189,36 @@ renderWithContext ct r = withManagedPtr ct $ \p ->
 -- `toGtkCoords` does no rescaling of the diagram, however it is centered in
 -- the window.
 toGtkCoords :: Monoid' m => QDiagram Cairo V2 Double m -> QDiagram Cairo V2 Double m
-toGtkCoords d = (\(_,_,d') -> d') $
-  adjustDia Cairo
-            (CairoOptions "" absolute RenderOnly False)
-            d
+toGtkCoords d =
+  (\(_, _, d') -> d') $
+    adjustDia
+      Cairo
+      (CairoOptions "" absolute RenderOnly False)
+      d
 
 -- | Render a diagram to a 'DrawingArea''s context with double buffering if needed,
 --   rescaling to fit the full area.
 defaultRender ::
-     Monoid' m =>
-    GI.Cairo.Context -- ^ DrawingArea's context to render onto --  provided by the draw event
-    -> Bool -- ^render double buffered?
-    -> QDiagram Cairo V2 Double m   -- ^ Diagram
-    -> IO ()
-defaultRender ctx diagram = do
-  render ctx opts diagram
-    where opts w h = (CairoOptions
-              { _cairoFileName     = ""
-              , _cairoSizeSpec     = dims (V2 w h)
-              , _cairoOutputType   = RenderOnly
-              , _cairoBypassAdjust = False
-              }
-           )
+  Monoid' m =>
+  -- | render double buffered?
+  Bool ->
+  -- | Diagram
+  QDiagram Cairo V2 Double m ->
+  -- | DrawingArea's context to render onto --  provided by the draw event
+  GI.Cairo.Context ->
+  Int32 ->
+  Int32 ->
+  IO ()
+defaultRender db diagram ctx w h = render db opts diagram ctx
+  where
+    opts =
+      ( CairoOptions
+          { _cairoFileName = "",
+            _cairoSizeSpec = dims (V2 (fromIntegral w) (fromIntegral h)),
+            _cairoOutputType = RenderOnly,
+            _cairoBypassAdjust = False
+          }
+      )
 
 -- | Render a diagram to a 'DrawArea''s context with double buffering.  No
 --   rescaling or transformations will be performed.
@@ -216,42 +226,53 @@ defaultRender ctx diagram = do
 --   Typically the diagram will already have been transformed by
 --   'toGtkCoords'.
 renderToGtk ::
-  (Monoid' m)
-  => GI.Cairo.Context -- ^ DrawingArea's context to render onto --  provided by the draw event
-  -> Bool -- ^render double buffered?
-  -> QDiagram Cairo V2 Double m  -- ^ Diagram
-  -> IO ()
-renderToGtk ctx db = render ctx opts db
-  where opts w h = (CairoOptions
-                    { _cairoFileName     = ""
-                    , _cairoSizeSpec     = absolute
-                    , _cairoOutputType   = RenderOnly
-                    , _cairoBypassAdjust = True
-                    }
-                   )
+  (Monoid' m) =>
+  -- | Diagram
+  Bool ->
+  QDiagram Cairo V2 Double m ->
+  -- | render double buffered?
+  Int32 ->
+  Int32 ->
+  -- | DrawingArea's context to render onto --  provided by the draw event
+  GI.Cairo.Context ->
+  IO ()
+renderToGtk db diagram w h ctx = render db opts diagram ctx
+  where
+    opts =
+      ( CairoOptions
+          { _cairoFileName = "",
+            _cairoSizeSpec = absolute,
+            _cairoOutputType = RenderOnly,
+            _cairoBypassAdjust = True
+          }
+      )
 
 -- | Render a diagram onto a 'GI.Cairo.Context' using the given CairoOptions. Place this within a 'draw' event callback which provides the DrawArea's context.
 --
 --   This uses cairo double-buffering if the thirs parameter is set to True..
 render ::
   (Monoid' m) =>
-  GI.Cairo.Context -- ^ DrawingArea's 'GI.Cairo.Context' to render the digram onto
-  -> (Double -> Double -> Options Cairo V2 Double) -- ^ options, depending on drawable width and height
-  -> Bool -- ^render double buffered?
-  -> QDiagram Cairo V2 Double m -- ^ Diagram
-  -> IO ()
-render ctx renderOpts db diagram =
-    renderWithContext ctx (do
-        (x1, x2, y1, y2) <- Cairo.clipExtents
+  -- | DrawingArea's 'GI.Cairo.Context' to render the digram onto
+  Bool ->
+  Options Cairo V2 Double ->
+  QDiagram Cairo V2 Double m ->
+  GI.Cairo.Context ->
+  -- | render double buffered?
+  -- | options, depending on drawable width and height
+  -- | Diagram
+  IO ()
+render db renderOpts diagram ctx =
+  renderWithContext
+    ctx
+    ( do
+        a@(x1, x2, y1, y2) <- Cairo.clipExtents
         let w = x2 - x1
             h = y2 - y1
-            opts = renderOpts w h
         if db
-            then doubleBuffer $ do
-                delete w h
-                snd (renderDia Cairo opts diagram)
-            else
-                snd (renderDia Cairo opts diagram)
+          then doubleBuffer $ do
+            delete w h
+            snd (renderDia Cairo renderOpts diagram)
+          else snd (renderDia Cairo renderOpts diagram)
     )
 
 --
@@ -262,7 +283,6 @@ delete w h = do
   Cairo.rectangle 0 0 (w) (h)
   Cairo.fill
 
-
 -- | Wrap the given render action in double buffering.
 doubleBuffer :: Cairo.Render () -> Cairo.Render ()
 doubleBuffer renderAction = do
@@ -270,4 +290,3 @@ doubleBuffer renderAction = do
   renderAction
   Cairo.popGroupToSource
   Cairo.paint
-

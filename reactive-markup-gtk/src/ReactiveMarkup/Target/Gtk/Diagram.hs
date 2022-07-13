@@ -17,7 +17,7 @@ instance MakeGtkRender (Diagram Gtk Cairo) c e => Render (Diagram Gtk Cairo) Gtk
 
     -- _ <- SE.current (SE.toBehavior dia) >>= renderDiagram
     Gtk.drawingAreaSetDrawFunc drawingArea $ Just $ \_ ctx w h ->
-        SE.current (SE.toBehavior dia) >>= renderDiagram ctx 
+        SE.current (SE.toBehavior dia) >>= renderDiagram ctx w h
 
 
     unreg <- liftIO $
@@ -29,4 +29,4 @@ instance MakeGtkRender (Diagram Gtk Cairo) c e => Render (Diagram Gtk Cairo) Gtk
     Gtk.toWidget drawingArea >>= setWidgetNow
     
     where
-      renderDiagram ctx = defaultRender ctx True
+      renderDiagram ctx w h diagram = defaultRender True diagram ctx w h

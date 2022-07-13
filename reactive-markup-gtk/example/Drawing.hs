@@ -5,14 +5,12 @@ import Diagrams.Backend.Cairo
 import Diagrams.Prelude hiding (Dynamic)
 import ReactiveMarkup
 import ReactiveMarkup.Target.Gtk
-import ReactiveMarkup.Widget.Diagram
+import ReactiveMarkup.Widget.Diagram hiding (Diagram)
 import Text.Read
 
-main :: IO ()
-main = do
-  runGtk app
-
 newtype Model = Model Int
+
+data AppEvent = Increase | Decrease | Set Int
 
 valueApp :: Markup Gtk Root Void
 valueApp =
@@ -32,30 +30,36 @@ updateModel event (Model i) = Just $
 
 buttons :: Markup Gtk Block AppEvent
 buttons =
-  row
-    [ button [\bO -> bO {click = Just Increase}] "Increase",
-      button [\bO -> bO {click = Just Decrease}] "Decrease"
-    ]
+  row $
+    fmap (margin Small) $
+      [ button [\bO -> bO {click = Just Increase}] "Increase",
+        button [\bO -> bO {click = Just Decrease}] "Decrease"
+      ]
 
 chart :: Dynamic Gtk Model -> Markup Gtk Block AppEvent
-chart model =
-  diagram @Cairo $
-    model <&> \(Model i) -> center $ 
-      rect 1 (0.5 * fromIntegral (10 - i))
-        === rect 1 (0.5 * fromIntegral i) # fillColor blue
+chart model = margin Big $ diagram $ fmap modelToDiagram model
+  where
+    modelToDiagram :: Model -> Diagram Cairo
+    modelToDiagram (Model i) =
+      rect 2 (fromIntegral (10 - i))
+        === rect 2 (fromIntegral i) # fillColor blue
 
 textfield :: Dynamic Gtk Model -> Markup Gtk Block AppEvent
 textfield model =
-  row
-    [ "Value: ",
-      filterEvents id $
-        textField [\tO -> tO {change = Just parse}] $ (\(Model i) -> T.pack (show i)) <$> model
-    ]
+  row $
+    fmap (margin Small) $
+      [ "Value: ",
+        filterEvents id $
+          let modelAsText = fmap (\(Model i) -> T.pack (show i)) model
+           in textField [\tO -> tO {change = Just parse}] modelAsText
+      ]
   where
     parse :: T.Text -> Maybe AppEvent
     parse = fmap Set . readMaybe @Int . T.unpack
 
-data AppEvent = Increase | Decrease | Set Int
+main :: IO ()
+main = do
+  runGtk app
 
 app :: App Gtk EmptyF Void
 app =
