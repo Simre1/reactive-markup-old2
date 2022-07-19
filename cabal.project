@@ -28,13 +28,13 @@ packages:
 --     subdir: jni
 
 
-package jni
-        extra-lib-dirs: 
-            /usr/lib/jvm/default/lib/server
-            /usr/lib/jvm/default/lib
-        extra-include-dirs: 
-            /usr/lib/jvm/default/include
-            /usr/lib/jvm/default/include/linux
+-- package jni
+--         extra-lib-dirs: 
+--             /usr/lib/jvm/default/lib/server
+--             /usr/lib/jvm/default/lib
+--         extra-include-dirs: 
+--             /usr/lib/jvm/default/include
+--             /usr/lib/jvm/default/include/linux
                       
             
  
