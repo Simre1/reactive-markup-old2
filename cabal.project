@@ -3,10 +3,21 @@ packages:
     reactive-markup-diagrams/*.cabal, 
     reactive-markup-gtk/*.cabal 
     reactive-markup-gtk/diagrams-gi-gtk/*.cabal 
+    reactive-markup-reflex/*.cabal
+
+
+package reflex-dom
+    flags: +use-warp
+
 --    reactive-markup-compose,
 --    reactive-markup-compose/jni
 
 
+
+-- source-repository-package
+--    type: git
+--    location: https://github.com/Simre1/ghcjs-dom
+--    subdir: ghcjs-dom
 
 
 -- source-repository-package

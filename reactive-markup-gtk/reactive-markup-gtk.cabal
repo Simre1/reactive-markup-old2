@@ -37,7 +37,6 @@ common common
     ExistentialQuantification
     ScopedTypeVariables
     InstanceSigs
-    StandaloneKindSignatures
     UndecidableInstances
     OverloadedStrings
     OverloadedLabels

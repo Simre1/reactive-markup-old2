@@ -37,7 +37,6 @@ common common
     ExistentialQuantification
     ScopedTypeVariables
     InstanceSigs
-    StandaloneKindSignatures
     UndecidableInstances
     OverloadedStrings
     DuplicateRecordFields
@@ -45,9 +44,8 @@ common common
     StandaloneDeriving
     FunctionalDependencies
     PolyKinds
-    ImpredicativeTypes
     ConstraintKinds
-  default-language: GHC2021
+  default-language: Haskell2010
 
 library
     import: common

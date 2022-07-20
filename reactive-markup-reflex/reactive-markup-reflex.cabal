@@ -1,0 +1,83 @@
+cabal-version:      2.4
+name:               reactive-markup-reflex
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+-- license:
+author:             Simre1
+maintainer:         simre4775@gmail.com
+
+-- A copyright notice.
+-- copyright:
+-- category:
+extra-source-files: CHANGELOG.md
+
+common common
+  default-extensions:
+    DataKinds
+    TypeFamilies
+    GADTs
+    MultiParamTypeClasses
+    DerivingVia
+    GeneralizedNewtypeDeriving
+    FlexibleInstances
+    FlexibleContexts
+    TypeApplications
+    TypeOperators
+    RankNTypes
+    ExistentialQuantification
+    ScopedTypeVariables
+    InstanceSigs
+    UndecidableInstances
+    OverloadedStrings
+    OverloadedLabels
+    DuplicateRecordFields
+    DeriveGeneric
+    BangPatterns
+    ConstraintKinds
+    QuantifiedConstraints
+  default-language: Haskell2010
+
+library
+    import: common
+    exposed-modules:  
+        ReactiveMarkup.Target.ReflexDom
+        ReactiveMarkup.Target.ReflexDom.Base
+        ReactiveMarkup.Target.ReflexDom.Container
+        ReactiveMarkup.Target.ReflexDom.Diagram
+        ReactiveMarkup.Target.ReflexDom.Inline
+        ReactiveMarkup.Target.ReflexDom.Interactive
+        ReactiveMarkup.Target.ReflexDom.ModelF
+        ReactiveMarkup.Target.ReflexDom.State
+        ReactiveMarkup.Target.ReflexDom.Styling
+
+    -- Modules included in this library but not exported.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:    base ^>=4.13.0.0, reactive-markup, reflex-dom, reflex, ref-tf, transformers, monad-control, dependent-sum
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+executable hello
+  import: common
+  main-is: Hello.hs
+  hs-source-dirs: examples
+  build-depends: base, text, reactive-markup, reactive-markup-reflex, optics-core
+
+
+executable Todo
+  import: common
+  main-is: Todo.hs
+  hs-source-dirs: examples
+  build-depends: base, text, reactive-markup, reactive-markup-reflex, optics-core

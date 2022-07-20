@@ -1,13 +1,14 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+
 module Data.RHKT where
 
 import Control.Monad (zipWithM)
+import Data.Data
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Constraint)
 import GHC.Generics (Generic)
 import Optics.Core hiding (Fold)
-import Data.Data
 import Unsafe.Coerce
 
 type FData = ((F -> *) -> *)
@@ -90,11 +91,10 @@ instance TransformFData (Wrap (Direct a)) where
 instance TransformFData a => TransformFData (Wrap (Nested a)) where
   transformFData _ fN (Wrap a) (Wrap b) = Wrap <$> fN a b
 
-data EmptyF (f :: F -> *) = EmptyF deriving Show
+data EmptyF (f :: F -> *) = EmptyF deriving (Show)
 
 instance TransformFData EmptyF where
   transformFData fD fN EmptyF EmptyF = pure EmptyF
-
 
 class Deeper (f :: F -> *) where
   type Deep (f :: F -> *) (a :: F)
@@ -125,7 +125,6 @@ instance Applicative f => Upwards (FunctorF f) where
   type Up (FunctorF f) a = f (ApplyF a (FunctorF f))
   type UpC (FunctorF f) a = ()
   upwards = lens (\a -> FunctorF a) (\_ (FunctorF a) -> a)
-
 
 data IsF f where
   IsDirect :: IsF (Direct x)

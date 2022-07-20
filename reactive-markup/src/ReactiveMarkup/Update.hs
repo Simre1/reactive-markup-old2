@@ -1,8 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedRecordUpdate #-}
-{-# LANGUAGE RebindableSyntax #-}
-
 module ReactiveMarkup.Update where
 
 import Control.Monad.IO.Class
