@@ -34,8 +34,8 @@ box orientation ms = MakeGtk $ do
     
     Gtk.toWidget box >>= setWidgetNow
 
-instance MakeGtkRender (Column Gtk c) c e => Render (Column Gtk Block) Gtk c where
+instance MakeGtkRender (Column Gtk c) c e => Render (Column Gtk Common) Gtk c where
   render (Column ms) = box Gtk.OrientationVertical ms 
 
-instance MakeGtkRender (Row Gtk c) c e => Render (Row Gtk Block) Gtk c where
+instance MakeGtkRender (Row Gtk c) c e => Render (Row Gtk Common) Gtk c where
   render (Row ms) = box Gtk.OrientationHorizontal ms 

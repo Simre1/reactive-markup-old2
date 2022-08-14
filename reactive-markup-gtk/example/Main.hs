@@ -56,12 +56,11 @@ renderGUI :: TempModel (DynamicF Gtk) -> Markup Gtk Root AppEvent
 renderGUI model =
   column
     [ "Celsius",
-      (fmap :: (Int -> AppEvent) -> Markup Gtk Block Int -> Markup Gtk Block AppEvent) SetCelsius $
+      (fmap :: (Int -> AppEvent) -> Markup Gtk Common Int -> Markup Gtk Common AppEvent) SetCelsius $
         numberField (celsius model),
       "Fahreinheit",
       SetFahreinheit <$> numberField (fahreinheit model),
-      searchComponent,
-      absurd <$> countingButton
+      searchComponent
     ]
 
 app :: App Gtk TempModel AppEvent
@@ -73,7 +72,7 @@ app =
       appName = "Temperature Example"
     }
 
-numberField :: Dynamic Gtk Int -> Markup Gtk Block Int
+numberField :: Dynamic Gtk Int -> Markup Gtk Common Int
 numberField state = 
   let text :: Dynamic Gtk Text = pack . show <$> state
    in filterEvents parseNumber $ textField [(#change ?~ id)] (text)
@@ -92,28 +91,16 @@ numberField state =
 
 data SearchEvent = SearchButtonClicked | UpdateSearchText Text
 
-searchComponent :: Markup Gtk Block AppEvent
-searchComponent = simpleLocalState' handleSearchEvent "" searchWithButton
+searchComponent :: Markup Gtk Common AppEvent
+searchComponent = simpleLocalState' "" handleSearchEvent searchWithButton
   where
     handleSearchEvent :: SearchEvent -> Text -> SimpleUpdate Text AppEvent
     handleSearchEvent SearchButtonClicked s = setSimpleUpdateEvent (Search s) defSimpleUpdate
     handleSearchEvent (UpdateSearchText t) _ = setSimpleUpdate t defSimpleUpdate
     
-    searchWithButton :: Dynamic Gtk Text -> Markup Gtk Block SearchEvent
+    searchWithButton :: Dynamic Gtk Text -> Markup Gtk Common SearchEvent
     searchWithButton searchText = 
       row
         [ textField [(#change ?~ UpdateSearchText)] (searchText),
           button [#click ?~ SearchButtonClicked] "Search"
         ]
-
-countingButton :: Markup Gtk Block Void
-countingButton = simpleLocalState handleButtonClick initialState buttonWithNumber
-  where
-    initialState :: Int
-    initialState = 0
-
-    handleButtonClick :: () -> Int -> Maybe Int
-    handleButtonClick () state = Just (state + 1)
-    
-    buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
-    buttonWithNumber int = dynamicMarkup int $ \i -> button [(#click ?~ ())] (string $ show i)

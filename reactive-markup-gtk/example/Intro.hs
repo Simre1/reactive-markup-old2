@@ -1,23 +1,24 @@
+import Data.RHKT
 import Data.Void
 import ReactiveMarkup.App
 import ReactiveMarkup.Context
 import ReactiveMarkup.Markup
 import ReactiveMarkup.Target.Gtk
 import ReactiveMarkup.Widget
+import Data.Text (Text)
 
 main :: IO ()
 main = do
-  pure ()
+  runGtk app
 
---   runGtk app
-
--- app :: App Gtk Void Void
--- app =
---   App
---     { appRender = \_ -> gui,
---       appHandleEvent = \_ -> pure undefined,
---       appInitialState = undefined
---     }
+app :: App Gtk EmptyF Void
+app =
+  App
+    { appRender = const gui,
+      appHandleEvent = absurd,
+      appInitialState = EmptyF,
+      appName = "Intro"
+    }
 
 gui :: Markup Gtk Root Void
 -- GUIs are complex and take a lot of effort to create.
@@ -137,13 +138,23 @@ gui :: Markup Gtk Root Void
 
 -- Let's say that a button emits an event of type ButtonClick,
 
-myButton :: Markup Gtk Block () -- ButtonClick is the event type!
+myButton :: Markup Gtk Common () -- ButtonClick is the event type!
 myButton = button [] "Click me"
 
 -- We can now add components that can react to events.
 -- For example:
-mapEventIO' :: (innerEvent -> IO (Maybe outerEvent)) -> Markup Gtk Block innerEvent -> Markup Gtk Block outerEvent
+mapEventIO' :: (innerEvent -> IO (Maybe outerEvent)) -> Markup Gtk Common innerEvent -> Markup Gtk Common outerEvent
 mapEventIO' = mapEventIO
+
+-- newtype ButtonOptions e = ButtonOptions { click :: Maybe e }
+
+clickButton :: Markup Gtk Common ()
+clickButton =
+  button
+    [\buttonOptions -> buttonOptions {click = Just ()}]
+    (string "Click me")
+
+-- gui = lift $ dropEvents $ clickButton
 
 -- You provide a function which takes the inner event and does some IO
 -- and/or produces an outer event and the component will
@@ -185,8 +196,8 @@ mapEventIO' = mapEventIO
 -- The components are only the specification and there can exist multiple interpretations.
 -- Which interpretation is choosen is indicated by the first and second type parameter.
 
--- The first type parameter of Markup sets the concrete target platform, which is Gtk in this case.
-textGtk :: Markup Gtk Block Void
+-- The first type parameter of Markup sets the concrete backend platform, which is Gtk in this case.
+textGtk :: Markup Gtk Common Void
 textGtk = text "I am a Gtk label"
 
 -- The type of text however would also allow for other interpretations as long as the choosen implementation
@@ -198,37 +209,50 @@ text' = text "I am a polymorphic label"
 -- This way, you can reuse the same code for different gui frameworks.
 
 -- The second type parameter sets the context. Some gui components you can only use in specific contexts.
-bold' :: Markup Gtk Inline Void -> Markup Gtk Inline Void
+bold' :: Markup Gtk Paragraph Void -> Markup Gtk Paragraph Void
 bold' = bold
 
 -- Only inline markup can be used in conjunction with bold!
 
--- test :: Markup Gtk Block Void
+-- test :: Markup Gtk Common Void
 -- test = bold (row [])
--- Type error. Block markup cannot be made bold!
+-- Type error. Common markup cannot be made bold!
 
 -- gui = bold (text "Bold text")
--- Ok. Inline markup can be made bold.
+-- Ok. Paragraph markup can be made bold.
 
 -- Another example:
-textBlock :: Markup Gtk Block Void
-textBlock = text "I am a text in the block context"
+textCommon :: Markup Gtk Common Void
+textCommon = text "I am a text in the block context"
 
-textInline :: Markup Gtk Inline Void
-textInline = text "I am a text in the inline context! "
+textParagraph :: Markup Gtk Paragraph Void
+textParagraph = text "I am a text in the inline context! "
 
--- combinedBlock :: Markup Gtk Block Void
--- combinedBlock = textBlock <> textBlock
+-- combinedCommon :: Markup Gtk Common Void
+-- combinedCommon = textCommon <> textCommon
 -- Type error. You cannot combine block markup.
 
-combinedInline :: Markup Gtk Inline Void
-combinedInline = italic textInline <> bold textInline
+combinedParagraph :: Markup Gtk Paragraph Void
+combinedParagraph = italic textParagraph <> bold textParagraph
 
+myLabel :: Markup Gtk Paragraph Void
+myLabel = string "Label"
+
+concatenatedLabels :: Markup Gtk Paragraph Void
+concatenatedLabels = italic myLabel <> string "   " <> bold myLabel
+
+gui =lift $ dropEvents $ myTextField (pure "hello")
+
+
+myTextField :: Dynamic Gtk Text -> Markup Gtk Common Text
+myTextField content = textField 
+    [\textFieldOptions -> textFieldOptions {change = Just id}] 
+    content
 -- Ok. You can combine inline markup.
 
-gui =
-  column
-    [ text "You can easily combine inline texts",
-      lift $ combinedInline <> combinedInline,
-      dropEvents $ button [] "Click me"
-    ]
+-- gui =
+--   column
+--     [ text "You can easily combine inline texts",
+--       lift $ combinedParagraph <> combinedParagraph,
+--       dropEvents $ button [] "Click me"
+--     ]

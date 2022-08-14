@@ -34,11 +34,11 @@ renderReflexWidget t markup = let (ReflexWidget f) = renderMarkup markup in f t
 reactimate :: Event DomTimeline a -> (a -> Performable (Widget DomTimeline) ()) -> Widget DomTimeline ()
 reactimate ev f = performEvent_ $ f <$> ev
 
-instance Render (Lift RDom Inline) RDom Block where
+instance Render (Lift RDom Paragraph) RDom Common where
   render (Lift m) = ReflexWidget $ \t -> renderReflexWidget t m
 
-instance Render (Lift RDom Inline) RDom Root where
+instance Render (Lift RDom Paragraph) RDom Root where
   render (Lift m) = ReflexWidget $ \t -> renderReflexWidget t m
 
-instance Render (Lift RDom Block) RDom Root where
+instance Render (Lift RDom Common) RDom Root where
   render (Lift m) = ReflexWidget $ \t -> renderReflexWidget t m

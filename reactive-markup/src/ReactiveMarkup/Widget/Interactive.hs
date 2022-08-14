@@ -5,7 +5,7 @@ module ReactiveMarkup.Widget.Interactive where
 import Data.Text (Text)
 import Data.Void (Void)
 import GHC.Generics (Generic)
-import ReactiveMarkup.Context (Inline)
+import ReactiveMarkup.Context (Paragraph)
 import ReactiveMarkup.Markup
   ( Dynamic,
     Markup,
@@ -21,7 +21,7 @@ newtype ButtonOptions e = ButtonOptions
 
 data Button t c e = Button (ButtonOptions e) (Markup t c Void)
 
-button :: forall t c e r. (Render (Button t Inline) t c) => [ButtonOptions e -> ButtonOptions e] -> Markup t Inline Void -> Markup t c e
+button :: forall t c e r. (Render (Button t Paragraph) t c) => [ButtonOptions e -> ButtonOptions e] -> Markup t Paragraph Void -> Markup t c e
 button = withDefaultParameter (fmap markup . Button) (ButtonOptions Nothing)
 
 data TextFieldOptions t e = TextFieldOptions

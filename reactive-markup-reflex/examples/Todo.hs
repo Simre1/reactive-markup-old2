@@ -55,7 +55,7 @@ initialModel = TodoModel $ coerce @[Todo ID] $ [Todo ("Get tea" ^. upwards) (Fal
 
 -- Render View
 
-renderView :: TodoModel (DynamicF RDom) -> Markup RDom Block AppEvent
+renderView :: TodoModel (DynamicF RDom) -> Markup RDom Common AppEvent
 renderView model =
   let todos' = todos model ^. deeper % mapping #children
       renderedTodos = dynamicMarkup todos' $ \ts -> column $ uncurry renderTodo <$> zip [0 ..] ts
@@ -65,7 +65,7 @@ renderView model =
           button [#click ?~ PrintTodos] "Print Todos"
         ]
 
-renderTodo :: Int -> DynamicF RDom (Nested Todo) -> Markup RDom Block AppEvent
+renderTodo :: Int -> DynamicF RDom (Nested Todo) -> Markup RDom Common AppEvent
 renderTodo nr todo =
   let done = view deeper todo >>= view (#todoDone % deeper)
       dText = view deeper todo >>= view (#todoText % deeper)

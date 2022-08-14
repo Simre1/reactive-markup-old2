@@ -59,7 +59,7 @@ To use Reactive Markup as a library, you will have to clone the git repository a
 
 You can define your UI by builing up the `Markup` type using the available components like `text`, `button`, `column` and so on. For example, to create a list consisting of some text and a button:
 ```haskell
-textAndButton :: Markup Gtk Block Void
+textAndButton :: Markup Gtk Common Void
 textAndButton = column 
   [ italic "Some text",
     button "Click me"
@@ -68,7 +68,7 @@ textAndButton = column
 
 You can use functions and let-expressions to factor out code and make reusable UI components.
 ```haskell
-textAndButton :: Markup Gtk Block Void
+textAndButton :: Markup Gtk Common Void
 textAndButton = 
   let boldText = bold "Bold text"
   in column 
@@ -84,7 +84,7 @@ Assuming that you create your UI as a function from model state to components, t
 
 Here is an example:
 ```haskell
-searchComponent :: Dynamic Gtk Bool -> Markup Gtk Block Void
+searchComponent :: Dynamic Gtk Bool -> Markup Gtk Common Void
 searchComponent isBool = dynamicMarkup isBool $ \actualIsBool -> row 
   [if actualIsBool then "Active" else "Inactive"]
 ```
@@ -97,7 +97,7 @@ Components can spawn events which are then passed upwards implicitly through the
 
 Here is a button which emits an event of type `Text` and the value "Event message":
 ```haskell
-buttonWithTextEvent :: Markup Gtk Block Text
+buttonWithTextEvent :: Markup Gtk Common Text
 buttonWithTextEvent = button "Click" (#click ?= "Event message")
 ```
 
@@ -106,7 +106,7 @@ Take note that the event type is part of the `Markup` type. This means that by l
 If we use `buttonWithTextEvent` within another component, then the resuling component also spawns events of type `Text`.
 
 ```haskell
-columnWithTextEvent :: Markup Gtk Block Text
+columnWithTextEvent :: Markup Gtk Common Text
 columnWithTextEvent = column [ buttonWithTextEvent ]
 ```
 
@@ -117,7 +117,7 @@ You cannot directly create `Dynamic` values and you cannot directly interact wit
 For example `simpleLocalState`:
 
 ```haskell
-countingButton :: Markup Gtk Block Void
+countingButton :: Markup Gtk Common Void
 countingButton = simpleLocalState handleButtonClick initialState buttonWithNumber
   where
     initialState :: Int
@@ -126,7 +126,7 @@ countingButton = simpleLocalState handleButtonClick initialState buttonWithNumbe
     handleButtonClick :: () -> Int -> SimpleUpdate Int Void
     handleButtonClick () state = setSimpleUpdate (state + 1) defSimpleUpdate
     
-    buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Block ()
+    buttonWithNumber :: Dynamic Gtk Int -> Markup Gtk Common ()
     buttonWithNumber int = dynamicMarkup int $ \i -> button (string $ show i) (#click ?~ ())
 ```
 

@@ -14,11 +14,11 @@ data LocalState s t c e = forall innerE. TransformFData s => LocalState (innerE 
 
 localState ::
   (TransformFData s, Render (LocalState s t c) t c) =>
-  (innerEvent -> ModelM s Identity (Maybe outerEvent)) ->
   s ID ->
+  (innerEvent -> ModelM s Identity (Maybe outerEvent)) ->
   (s (DynamicF t) -> Markup t c innerEvent) ->
   Markup t c outerEvent
-localState f s m = markup $ LocalState f s m
+localState s f m = markup $ LocalState f s m
 
 data SimpleUpdate s e = SimpleUpdate (Maybe s) (Maybe e)
 
@@ -34,11 +34,11 @@ setSimpleUpdateEvent e (SimpleUpdate s _) = SimpleUpdate s (Just e)
 simpleLocalState' ::
   forall s t c innerEvent outerEvent.
   (TransformFData (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
-  (innerEvent -> s -> SimpleUpdate s outerEvent) ->
   s ->
+  (innerEvent -> s -> SimpleUpdate s outerEvent) ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
-simpleLocalState' f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+simpleLocalState' s f makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
   where
     f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
     f' e = do
@@ -52,11 +52,11 @@ simpleLocalState' f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMark
 simpleLocalState ::
   forall s t c innerEvent outerEvent.
   (TransformFData (Wrap (Direct s)), Render (LocalState (Wrap (Direct s)) t c) t c) =>
-  (innerEvent -> s -> Maybe s) ->
   s ->
+  (innerEvent -> s -> Maybe s) ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
-simpleLocalState f s makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+simpleLocalState s f makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
   where
     f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
     f' e = do

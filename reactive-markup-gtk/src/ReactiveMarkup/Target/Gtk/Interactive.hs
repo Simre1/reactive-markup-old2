@@ -22,7 +22,7 @@ import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
 
-instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Inline) Gtk c where
+instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Paragraph) Gtk c where
   render (Button (ButtonOptions clickF) t) = MakeGtk $ do
     button <- Gtk.buttonNew
     handleEvent <- askHandleEvent

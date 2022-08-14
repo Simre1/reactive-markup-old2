@@ -2,6 +2,6 @@ module ReactiveMarkup.Context where
 
 data Root
 
-data Block
+data Common
 
-data Inline
+data Paragraph

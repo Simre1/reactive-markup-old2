@@ -5,7 +5,7 @@ type family SubContext super sub
 
 data Web
 
-data Block
+data Common
 
-data Inline
+data Paragraph
 

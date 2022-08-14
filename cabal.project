@@ -9,6 +9,8 @@ packages:
 package reflex-dom
     flags: +use-warp
 
+with-compiler: ghc-8.8.4
+
 --    reactive-markup-compose,
 --    reactive-markup-compose/jni
 

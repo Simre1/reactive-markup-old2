@@ -12,7 +12,7 @@ import qualified Reflex.Dom.Builder.Class as W
 import Reflex.Dom.Widget as W
 import Reflex.Host.Class
 
-instance Render (Button RDom Inline) RDom Block where
+instance Render (Button RDom Paragraph) RDom Common where
   render (Button (ButtonOptions clickF) m) = ReflexWidget $ \t -> do
     (buttonElement, _) <- element "button" def $ renderReflexWidget absurd m
     let clickEvent = domEvent Click buttonElement
@@ -22,7 +22,7 @@ instance Render (Button RDom Inline) RDom Block where
       clickF
     pure ()
 
-instance Render (TextField RDom) RDom Block where
+instance Render (TextField RDom) RDom Common where
   render (TextField (TextFieldOptions handleActivate handleChange) (ReflexDomDynamic dValue)) = ReflexWidget $ \t -> do
     val <- sample $ current dValue
     let event = updated dValue

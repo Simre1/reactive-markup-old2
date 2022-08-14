@@ -8,14 +8,14 @@ import Data.Void (Void)
 import GHC.TypeLits (ErrorMessage (..), TypeError)
 import Data.Foldable
 
-class Render widget target context where
-  render :: widget e -> RenderTarget target context e
+class Render widget backend context where
+  render :: widget e -> RenderTarget backend context e
 
-type family RenderError widget target context where
-  RenderError widget target context =
+type family RenderError widget backend context where
+  RenderError widget backend context =
     TypeError
       ( Text "The widget \"" :<>: ShowType widget :<>: Text "\" cannot be rendered to \"Markup "
-          :<>: ShowType target
+          :<>: ShowType backend
           :<>: Text " "
           :<>: ShowType context
           :<>: Text "\""
@@ -24,27 +24,27 @@ type family RenderError widget target context where
           :<>: Text "\" in another context!"
       )
 
-type family RenderErrorOnEqual a b widget target context :: Constraint where
+type family RenderErrorOnEqual a b widget backend context :: Constraint where
   RenderErrorOnEqual a a _ _ _ = ()
-  RenderErrorOnEqual _ _ widget target context = RenderError widget target context
+  RenderErrorOnEqual _ _ widget backend context = RenderError widget backend context
 
--- instance {-# OVERLAPPABLE #-} RenderError widget target context =>
---   Render widget target context where
+-- instance {-# OVERLAPPABLE #-} RenderError widget backend context =>
+--   Render widget backend context where
 --   render = error "no render"
 
-type family RenderTarget target context :: * -> *
+type family RenderTarget backend context :: * -> *
 
-data family Dynamic target a :: *
+data family Dynamic backend a :: *
 
-type DynamicF target = FunctorF (Dynamic target)
+type DynamicF backend = FunctorF (Dynamic backend)
 
-data Markup target context e = forall widget. Render widget target context => Markup (widget e)
+data Markup backend context e = forall widget. Render widget backend context => Markup (widget e)
 
-markup :: (Render widget target context) => widget e -> Markup target context e
+markup :: (Render widget backend context) => widget e -> Markup backend context e
 markup = Markup
 
-renderMarkup :: forall target context e. Markup target context e -> RenderTarget target context e
-renderMarkup (Markup elem) = render @_ @target @context @e elem
+renderMarkup :: forall backend context e. Markup backend context e -> RenderTarget backend context e
+renderMarkup (Markup elem) = render @_ @backend @context @e elem
 
 data Combine t c e = Combine (Markup t c e) (Markup t c e)
 

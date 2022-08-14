@@ -18,7 +18,7 @@ main = do
   T.putStrLn $ renderHtml $ runHtml jsLog test
 
 
-test :: Markup Html Block Text
+test :: Markup Html Common Text
 test = list [emphasis $ string "Hello", mapEvent (jsConst $ toJSVal @Text "hello world") $ button (emphasis (string "really"))]
 
 

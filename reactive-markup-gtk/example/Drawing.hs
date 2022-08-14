@@ -14,7 +14,7 @@ data AppEvent = Increase | Decrease | Set Int
 
 valueApp :: Markup Gtk Root Void
 valueApp =
-  simpleLocalState updateModel (Model 0) $ \model ->
+  simpleLocalState (Model 0) updateModel $ \model ->
     column
       [buttons, chart model, textfield model]
 
@@ -28,26 +28,24 @@ updateModel event (Model i) = Just $
   where
     validate x = min 10 $ max 0 x
 
-buttons :: Markup Gtk Block AppEvent
+buttons :: Markup Gtk Common AppEvent
 buttons =
   row $
-    fmap (margin Small) $
       [ button [\bO -> bO {click = Just Increase}] "Increase",
         button [\bO -> bO {click = Just Decrease}] "Decrease"
       ]
 
-chart :: Dynamic Gtk Model -> Markup Gtk Block AppEvent
+chart :: Dynamic Gtk Model -> Markup Gtk Common AppEvent
 chart model = margin Big $ diagram $ fmap modelToDiagram model
   where
     modelToDiagram :: Model -> Diagram Cairo
     modelToDiagram (Model i) =
       rect 2 (fromIntegral (10 - i))
-        === rect 2 (fromIntegral i) # fillColor blue
+        === fillColor blue (rect 2 (fromIntegral i))
 
-textfield :: Dynamic Gtk Model -> Markup Gtk Block AppEvent
+textfield :: Dynamic Gtk Model -> Markup Gtk Common AppEvent
 textfield model =
   row $
-    fmap (margin Small) $
       [ "Value: ",
         filterEvents id $
           let modelAsText = fmap (\(Model i) -> T.pack (show i)) model

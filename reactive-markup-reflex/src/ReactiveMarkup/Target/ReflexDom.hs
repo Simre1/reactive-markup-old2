@@ -7,7 +7,7 @@ import ReactiveMarkup
 import ReactiveMarkup.Target.ReflexDom.Base
 import ReactiveMarkup.Target.ReflexDom.Container
 import ReactiveMarkup.Target.ReflexDom.Diagram
-import ReactiveMarkup.Target.ReflexDom.Inline
+import ReactiveMarkup.Target.ReflexDom.Paragraph
 import ReactiveMarkup.Target.ReflexDom.Interactive
 import ReactiveMarkup.Target.ReflexDom.ModelF
 import ReactiveMarkup.Target.ReflexDom.State

@@ -54,7 +54,7 @@ library
         ReactiveMarkup.Target.ReflexDom.Base
         ReactiveMarkup.Target.ReflexDom.Container
         ReactiveMarkup.Target.ReflexDom.Diagram
-        ReactiveMarkup.Target.ReflexDom.Inline
+        ReactiveMarkup.Target.ReflexDom.Paragraph
         ReactiveMarkup.Target.ReflexDom.Interactive
         ReactiveMarkup.Target.ReflexDom.ModelF
         ReactiveMarkup.Target.ReflexDom.State
@@ -69,7 +69,7 @@ library
     hs-source-dirs:   src
     default-language: Haskell2010
 
-executable hello
+executable Hello
   import: common
   main-is: Hello.hs
   hs-source-dirs: examples
@@ -79,5 +79,12 @@ executable hello
 executable Todo
   import: common
   main-is: Todo.hs
+  hs-source-dirs: examples
+  build-depends: base, text, reactive-markup, reactive-markup-reflex, optics-core
+
+
+executable CountingButton
+  import: common
+  main-is: CountingButton.hs
   hs-source-dirs: examples
   build-depends: base, text, reactive-markup, reactive-markup-reflex, optics-core

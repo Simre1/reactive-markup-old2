@@ -9,7 +9,6 @@ import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Constraint)
 import GHC.Generics (Generic)
 import Optics.Core hiding (Fold)
-import Unsafe.Coerce
 
 type FData = ((F -> *) -> *)
 
@@ -70,7 +69,7 @@ instance TransformFData f => TransformFData (List (Nested f)) where
 instance TransformFData (List (Direct a)) where
   transformFData fD fN (List elems1) (List elems2) = List <$> zipWithM fD elems1 elems2
 
-newtype ID (a :: F) = ID {runID :: ApplyF a ID}
+newtype ID (a :: F) = ID {runID :: ApplyF a ID} deriving Generic
 
 deriving instance Show (ApplyF a ID) => Show (ID a)
 

@@ -19,7 +19,6 @@ maintainer:         simre4775@gmail.com
 -- A copyright notice.
 -- copyright:
 -- category:
-extra-source-files: CHANGELOG.md
 
 common common
   default-extensions:

@@ -22,7 +22,7 @@ import Data.IORef
 
 data Gtk
 
-type instance RenderTarget Gtk Inline = Const Text
+type instance RenderTarget Gtk Paragraph = Const Text
 
 newtype GtkContext e a = GtkContext {runGtkContext' :: ReaderT (CleanUp, e -> IO (), Gtk.Widget -> IO ()) IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
@@ -74,7 +74,7 @@ localCleanUp cleanUp (GtkContext c) = do
   (_, handleEvent, setWidget) <- GtkContext ask
   liftIO $ runReaderT c (cleanUp, handleEvent, setWidget)
 
-type instance RenderTarget Gtk Block = MakeGtk
+type instance RenderTarget Gtk Common = MakeGtk
 
 type instance RenderTarget Gtk Root = MakeGtk
 
@@ -90,10 +90,10 @@ instance MakeGtkRender (FilterEvents Gtk c) c e => Render (FilterEvents Gtk c) G
     where
       newF h e = maybe (pure ()) h (f e)
 
-instance Render (Lift Gtk Block) Gtk Root where
+instance Render (Lift Gtk Common) Gtk Root where
   render (Lift m) = renderMarkup m
 
-instance Render (Lift Gtk Inline) Gtk Block where
+instance Render (Lift Gtk Paragraph) Gtk Common where
   render (Lift m) = pangoToWidget $ getConst $ renderMarkup m
 
 instance MakeGtk ~ RenderTarget c t => Render (Map c t) c t where

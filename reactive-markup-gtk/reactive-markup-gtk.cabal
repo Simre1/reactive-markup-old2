@@ -19,7 +19,6 @@ maintainer:         simre4775@gmail.com
 -- A copyright notice.
 -- copyright:
 -- category:
-extra-source-files: CHANGELOG.md
 
 common common
   default-extensions:
@@ -54,7 +53,7 @@ library
       SimpleEvents, 
       ReactiveMarkup.Target.Gtk.Base,
       ReactiveMarkup.Target.Gtk.Container,
-      ReactiveMarkup.Target.Gtk.Inline,
+      ReactiveMarkup.Target.Gtk.Paragraph,
       ReactiveMarkup.Target.Gtk.Interactive,
       ReactiveMarkup.Target.Gtk.State,
       ReactiveMarkup.Target.Gtk.Styling,
@@ -112,3 +111,9 @@ executable Drawing
   main-is: Drawing.hs
   hs-source-dirs: example
   build-depends: base , text, containers, vector, reactive-markup, reactive-markup-diagrams, reactive-markup-gtk, optics-core, diagrams-lib, diagrams-cairo
+
+executable CountingButton
+  import: common
+  main-is: CountingButton.hs
+  hs-source-dirs: example
+  build-depends: base , text, containers, vector, reactive-markup, reactive-markup-gtk, optics-core

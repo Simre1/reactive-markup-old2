@@ -52,7 +52,7 @@ library
     exposed-modules:  
       ReactiveMarkup.Markup, 
       ReactiveMarkup.Widget.Container,
-      ReactiveMarkup.Widget.Inline, 
+      ReactiveMarkup.Widget.Paragraph, 
       ReactiveMarkup.Widget.Interactive, 
       ReactiveMarkup.Widget.State, 
       ReactiveMarkup.Widget.Styling, 

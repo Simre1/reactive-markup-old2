@@ -65,7 +65,7 @@ renderView model =
           margin Small $ button [#click ?~ PrintTodos] "Print Todos"
         ]
 
-renderTodo :: Int -> DynamicF Gtk (Nested Todo) -> Markup Gtk Block AppEvent
+renderTodo :: Int -> DynamicF Gtk (Nested Todo) -> Markup Gtk Common AppEvent
 renderTodo nr todo =
   margin Small $
     let done = view deeper todo >>= view (#todoDone % deeper)

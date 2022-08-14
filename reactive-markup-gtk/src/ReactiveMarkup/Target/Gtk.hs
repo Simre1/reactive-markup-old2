@@ -23,7 +23,7 @@ import ReactiveMarkup.App
 import ReactiveMarkup.Markup (Dynamic, renderMarkup)
 import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Target.Gtk.Container
-import ReactiveMarkup.Target.Gtk.Inline
+import ReactiveMarkup.Target.Gtk.Paragraph
 import ReactiveMarkup.Target.Gtk.Interactive
 import ReactiveMarkup.Target.Gtk.ModelF
 import ReactiveMarkup.Target.Gtk.State
