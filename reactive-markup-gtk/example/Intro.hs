@@ -150,9 +150,7 @@ mapEventIO' = mapEventIO
 
 clickButton :: Markup Gtk Common ()
 clickButton =
-  button
-    [\buttonOptions -> buttonOptions {click = Just ()}]
-    (string "Click me")
+  button (string "Click me") $= \button -> button {click = Just ()}
 
 -- gui = lift $ dropEvents $ clickButton
 
@@ -245,9 +243,7 @@ gui =lift $ dropEvents $ myTextField (pure "hello")
 
 
 myTextField :: Dynamic Gtk Text -> Markup Gtk Common Text
-myTextField content = textField 
-    [\textFieldOptions -> textFieldOptions {change = Just id}] 
-    content
+myTextField content = textField content $= \textField -> textField {change = Just id}
 -- Ok. You can combine inline markup.
 
 -- gui =

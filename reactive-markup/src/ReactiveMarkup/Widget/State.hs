@@ -4,7 +4,7 @@ import Data.Functor.Identity
 import Data.RHKT
 import GHC.Generics
 import Optics.Core
-import ReactiveMarkup.Markup (Dynamic, DynamicF, Markup, Render, markup)
+import ReactiveMarkup.Markup (Dynamic, DynamicF, Markup, Render, wrapMarkup)
 import ReactiveMarkup.Update
 
 data LocalUpdate s e = LocalUpdate {localModel :: s, propagatedEvent :: Maybe e}
@@ -18,7 +18,7 @@ localState ::
   (innerEvent -> ModelM s Identity (Maybe outerEvent)) ->
   (s (DynamicF t) -> Markup t c innerEvent) ->
   Markup t c outerEvent
-localState s f m = markup $ LocalState f s m
+localState s f m = wrapMarkup $ LocalState f s m
 
 data SimpleUpdate s e = SimpleUpdate (Maybe s) (Maybe e)
 
@@ -38,7 +38,7 @@ simpleLocalState' ::
   (innerEvent -> s -> SimpleUpdate s outerEvent) ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
-simpleLocalState' s f makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+simpleLocalState' s f makeMarkup = wrapMarkup $ LocalState f' (Wrap $ ID s) makeMarkup'
   where
     f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
     f' e = do
@@ -56,7 +56,7 @@ simpleLocalState ::
   (innerEvent -> s -> Maybe s) ->
   (Dynamic t s -> Markup t c innerEvent) ->
   Markup t c outerEvent
-simpleLocalState s f makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarkup'
+simpleLocalState s f makeMarkup = wrapMarkup $ LocalState f' (Wrap $ ID s) makeMarkup'
   where
     f' :: innerEvent -> ModelM (Wrap (Direct s)) Identity (Maybe outerEvent)
     f' e = do
@@ -70,7 +70,7 @@ simpleLocalState s f makeMarkup = markup $ LocalState f' (Wrap $ ID s) makeMarku
 data DynamicMarkup s t c e = DynamicMarkup (Dynamic t s) (s -> Markup t c e)
 
 dynamicMarkup :: Render (DynamicMarkup s t c) t c => Dynamic t s -> (s -> Markup t c e) -> Markup t c e
-dynamicMarkup d f = markup $ DynamicMarkup d f
+dynamicMarkup d f = wrapMarkup $ DynamicMarkup d f
 
 data LocalStateIO t c e = forall s innerE. LocalStateIO (s -> innerE -> IO (s, Maybe e)) s (s -> Markup t c innerE)
 
@@ -80,9 +80,9 @@ localStateIO ::
   s ->
   (s -> Markup t c innerEvent) ->
   Markup t c e
-localStateIO f s m = markup $ LocalStateIO f s m
+localStateIO f s m = wrapMarkup $ LocalStateIO f s m
 
 data Counter t c e = Counter Double (Dynamic t Int -> Markup t c e)
 
 counter :: Render (Counter t c) t c => Double -> (Dynamic t Int -> Markup t c e) -> Markup t c e
-counter i = markup . Counter i
+counter i = wrapMarkup . Counter i

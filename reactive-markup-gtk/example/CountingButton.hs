@@ -5,7 +5,7 @@ import ReactiveMarkup.Target.Gtk
 data Model = Model Int
 
 clickButton :: Markup Gtk Common ()
-clickButton = button [\buttonOptions -> buttonOptions {click = Just ()}] (string "Click me")
+clickButton = button (string "Click me") $= (\b -> b {click = Just ()})
 
 countingButton :: Markup Gtk Common Void
 countingButton =

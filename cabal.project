@@ -3,13 +3,13 @@ packages:
     reactive-markup-diagrams/*.cabal, 
     reactive-markup-gtk/*.cabal 
     reactive-markup-gtk/diagrams-gi-gtk/*.cabal 
-    reactive-markup-reflex/*.cabal
+--    reactive-markup-reflex/*.cabal
 
 
 package reflex-dom
     flags: +use-warp
 
-with-compiler: ghc-8.8.4
+with-compiler: ghc-9.2.3
 
 --    reactive-markup-compose,
 --    reactive-markup-compose/jni

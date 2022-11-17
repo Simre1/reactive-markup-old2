@@ -5,7 +5,7 @@ import ReactiveMarkup.Target.ReflexDom
 data Model = Model Int
 
 clickButton :: Markup RDom Common ()
-clickButton = button [\buttonOptions -> buttonOptions {click = Just ()}] (string "Click me")
+clickButton = button (string "Click me") $= \button -> button {click = Just ()}
 
 countingButton :: Markup RDom Common Void
 countingButton =

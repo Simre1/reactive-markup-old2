@@ -12,4 +12,4 @@ newtype Diagram backend diaBackend e = Diagram (Dynamic backend (D.Diagram diaBa
 -- class DiagramBackend backend backend | backend -> backend, backend -> backend
 
 diagram :: forall diaBackend t c e. (Render (Diagram t diaBackend) t c) => Dynamic t (D.Diagram diaBackend) -> Markup t c e
-diagram = markup . Diagram  
+diagram = wrapMarkup . Diagram  

@@ -22,22 +22,25 @@ import ReactiveMarkup.Target.Gtk.Base
 import ReactiveMarkup.Widget
 import qualified SimpleEvents as SE
 
-instance MakeGtkRender (Button Gtk c) c e => Render (Button Gtk Paragraph) Gtk c where
-  render (Button (ButtonOptions clickF) t) = MakeGtk $ do
+instance Render (Button Gtk Paragraph) Gtk Common where
+  render (Button {click, child}) = MakeGtk $ do
     button <- Gtk.buttonNew
     handleEvent <- askHandleEvent
     localSetWidget (\w -> Gtk.buttonSetChild button (Just w)) $
       localHandleEvent absurd $
-        makeGtk (pangoToWidget $ getConst $ renderMarkup t)
-    maybe (pure ()) (\e -> void $ Gtk.onButtonClicked button $ handleEvent e) clickF
+        makeGtk (pangoToWidget $ getConst $ renderMarkup child)
+    maybe (pure ()) (\e -> void $ Gtk.onButtonClicked button $ handleEvent e) click
     Gtk.toWidget button >>= setWidgetNow
 
-instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
-  render (TextField (TextFieldOptions handleActivate handleChange) value) = MakeGtk $ do
+instance Render (Button Gtk Paragraph) Gtk Root where
+  render = render @(Button Gtk Paragraph) @Gtk @Common
+
+instance Render (TextField Gtk) Gtk Common where
+  render (TextField {activate, change, text}) = MakeGtk $ do
     handleEvent <- askHandleEvent
     entry <- Gtk.entryNew
     entryBuffer <- Gtk.entryGetBuffer entry
-    currentValue <- liftIO $ SE.current $ SE.toBehavior $ SE.onlyTriggerOnChange $ coerce value
+    currentValue <- liftIO $ SE.current $ SE.toBehavior $ SE.onlyTriggerOnChange $ coerce text
     Gtk.setEntryBufferText entryBuffer currentValue
 
     active <- liftIO $ newIORef True
@@ -45,9 +48,9 @@ instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
           whenM (readIORef active) $ do
             a
 
-    sequenceA_ $ (\handle -> Gtk.after entry #changed $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> handleChange
+    sequenceA_ $ (\handle -> Gtk.after entry #changed $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> change
 
-    sequenceA_ $ (\handle -> Gtk.onEntryActivate entry $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> handleActivate
+    sequenceA_ $ (\handle -> Gtk.onEntryActivate entry $ protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle) <$> activate
     -- sequenceA_ $ (\handle -> Gtk.afterEntryBufferDeletedText entryBuffer $ \_ _ -> protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
     -- sequenceA_ $ (\handle -> Gtk.afterEntryBufferInsertedText entryBuffer $ \_ _ _ -> protect $ Gtk.entryBufferGetText entryBuffer >>= handleEvent . handle . TextFieldEvent) <$> handleChange
 
@@ -58,9 +61,13 @@ instance MakeGtkRender (TextField Gtk) c e => Render (TextField Gtk) Gtk c where
           Gtk.editableSetPosition entry p
           writeIORef active True
 
-    liftIO $ SE.reactimate (SE.toEvent $ coerce value) $ SE.simpleEventHandler update
+    liftIO $ SE.reactimate (SE.toEvent $ coerce text) $ SE.simpleEventHandler update
 
     Gtk.toWidget entry >>= setWidgetNow
+
+instance Render (TextField Gtk) Gtk Root where
+  render = render @(TextField Gtk) @Gtk @Common
+
 
 instance MakeGtkRender (HotKey Gtk c) c e => Render (HotKey Gtk c) Gtk c where
   render (HotKey f child) = MakeGtk $ do

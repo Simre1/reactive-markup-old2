@@ -40,8 +40,8 @@ type DynamicF backend = FunctorF (Dynamic backend)
 
 data Markup backend context e = forall widget. Render widget backend context => Markup (widget e)
 
-markup :: (Render widget backend context) => widget e -> Markup backend context e
-markup = Markup
+wrapMarkup :: (Render widget backend context) => widget e -> Markup backend context e
+wrapMarkup = Markup
 
 renderMarkup :: forall backend context e. Markup backend context e -> RenderTarget backend context e
 renderMarkup (Markup elem) = render @_ @backend @context @e elem
@@ -49,7 +49,7 @@ renderMarkup (Markup elem) = render @_ @backend @context @e elem
 data Combine t c e = Combine (Markup t c e) (Markup t c e)
 
 combine :: Render (Combine t c) t c => Markup t c e -> Markup t c e -> Markup t c e
-combine a b = markup $ Combine a b
+combine a b = wrapMarkup $ Combine a b
 
 instance Render (Combine t c) t c => Semigroup (Markup t c e) where
   (<>) = combine
@@ -57,12 +57,12 @@ instance Render (Combine t c) t c => Semigroup (Markup t c e) where
 data Empty e = Empty
 
 instance (Semigroup (Markup t c e), Render Empty t c) => Monoid (Markup t c e) where
-  mempty = markup Empty
+  mempty = wrapMarkup Empty
 
 data Map t c e = forall innerE. Map (innerE -> e) (Markup t c innerE)
 
 mapEvent :: Render (Map t c) t c => (e1 -> e2) -> Markup t c e1 -> Markup t c e2
-mapEvent f m = markup $ Map f m
+mapEvent f m = wrapMarkup $ Map f m
 
 instance (Render (Map t c) t c) => Functor (Markup t c) where
   fmap = mapEvent
@@ -70,7 +70,7 @@ instance (Render (Map t c) t c) => Functor (Markup t c) where
 data FilterEvents t c e = forall eI. FilterEvents (eI -> Maybe e) (Markup t c eI)
 
 filterEvents :: Render (FilterEvents t c) t c => (eI -> Maybe e) -> Markup t c eI -> Markup t c e
-filterEvents f m = markup $ FilterEvents f m
+filterEvents f m = wrapMarkup $ FilterEvents f m
 
 dropEvents :: Render (FilterEvents t c) t c => Markup t c e -> Markup t c Void
 dropEvents = filterEvents $ const Nothing
@@ -78,7 +78,7 @@ dropEvents = filterEvents $ const Nothing
 newtype Lift t c e = Lift (Markup t c e)
 
 lift :: forall c1 c2 t e. Render (Lift t c1) t c2 => Markup t c1 e -> Markup t c2 e
-lift = markup . Lift
+lift = wrapMarkup . Lift
 
 -- Optional Parameters
 -- oMarkup :: (o -> w e) -> Markup t c e

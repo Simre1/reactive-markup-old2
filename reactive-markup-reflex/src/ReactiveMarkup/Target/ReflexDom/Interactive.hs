@@ -13,7 +13,7 @@ import Reflex.Dom.Widget as W
 import Reflex.Host.Class
 
 instance Render (Button RDom Paragraph) RDom Common where
-  render (Button (ButtonOptions clickF) m) = ReflexWidget $ \t -> do
+  render (Button clickF m) = ReflexWidget $ \t -> do
     (buttonElement, _) <- element "button" def $ renderReflexWidget absurd m
     let clickEvent = domEvent Click buttonElement
     maybe
@@ -23,7 +23,7 @@ instance Render (Button RDom Paragraph) RDom Common where
     pure ()
 
 instance Render (TextField RDom) RDom Common where
-  render (TextField (TextFieldOptions handleActivate handleChange) (ReflexDomDynamic dValue)) = ReflexWidget $ \t -> do
+  render (TextField handleActivate handleChange (ReflexDomDynamic dValue)) = ReflexWidget $ \t -> do
     val <- sample $ current dValue
     let event = updated dValue
     textfield <- W.inputElement def {W._inputElementConfig_initialValue = val, W._inputElementConfig_setValue = Just event}

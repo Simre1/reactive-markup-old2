@@ -10,35 +10,39 @@ import ReactiveMarkup.Markup
   ( Dynamic,
     Markup,
     Render,
-    markup,
-    withDefaultParameter,
+    wrapMarkup,
   )
 
-newtype ButtonOptions e = ButtonOptions
-  { click :: Maybe e
+data Button t c e = Button
+  { click :: Maybe e,
+    child :: Markup t c Void
   }
   deriving (Generic)
 
-data Button t c e = Button (ButtonOptions e) (Markup t c Void)
 
-button :: forall t c e r. (Render (Button t Paragraph) t c) => [ButtonOptions e -> ButtonOptions e] -> Markup t Paragraph Void -> Markup t c e
-button = withDefaultParameter (fmap markup . Button) (ButtonOptions Nothing)
 
-data TextFieldOptions t e = TextFieldOptions
+button :: forall t c e r. (Render (Button t Paragraph) t c) => Markup t Paragraph Void -> Markup t c e
+button child =
+  wrapMarkup $
+    Button
+      { click = Nothing,
+        child = child
+      }
+
+data TextField t e = TextField
   { activate :: Maybe (Text -> e),
-    change :: Maybe (Text -> e)
+    change :: Maybe (Text -> e),
+    text :: Dynamic t Text
   }
   deriving (Generic)
 
-data TextField t e = TextField (TextFieldOptions t e) (Dynamic t Text) 
-
-textField :: forall t c e. (Render (TextField t) t c) => [TextFieldOptions t e -> TextFieldOptions t e] -> Dynamic t Text -> Markup t c e
-textField = withDefaultParameter (fmap markup . TextField) $ TextFieldOptions Nothing Nothing
+textField :: forall t c e. (Render (TextField t) t c) => Dynamic t Text -> Markup t c e
+textField = wrapMarkup . TextField Nothing Nothing
 
 data MapEventIO t c e = forall innerE. MapEventIO (innerE -> IO (Maybe e)) (Markup t c innerE)
 
 mapEventIO :: Render (MapEventIO t c) t c => (innerE -> IO (Maybe e)) -> Markup t c innerE -> Markup t c e
-mapEventIO f m = markup $ MapEventIO f m
+mapEventIO f m = wrapMarkup $ MapEventIO f m
 
 data HotKey t c e = HotKey (Key -> [Modifier] -> Maybe e) (Markup t c e)
 
@@ -78,7 +82,7 @@ data Key
   deriving (Eq, Show)
 
 hotKeyFunction :: Render (HotKey t c) t c => (Key -> [Modifier] -> Maybe e) -> Markup t c e -> Markup t c e
-hotKeyFunction f child = markup $ HotKey f child
+hotKeyFunction f child = wrapMarkup $ HotKey f child
 
 hotKey :: Render (HotKey t c) t c => Key -> [Modifier] -> e -> Markup t c e -> Markup t c e
 hotKey givenKey givenModifiers event = hotKeyFunction $ \key modifiers ->
